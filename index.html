@@ -1,0 +1,69 @@
+﻿<!doctype html>
+<html lang="es-AR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Sistema de Consultas DGINCD</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <section class="login-view" id="loginView">
+    <form class="login-card" id="loginForm">
+      <h1>Sistema de Consultas DGINCD</h1>
+      <p>Ingresá con usuario y contraseña.</p>
+      <label>Email<input id="loginEmail" type="email" autocomplete="username" required /></label>
+      <label>Contraseña<input id="loginPassword" type="password" autocomplete="current-password" required /></label>
+      <button type="submit">Ingresar</button>
+      <div class="login-status" id="loginStatus"></div>
+    </form>
+  </section>
+
+  <main class="shell hidden" id="appShell">
+    <header class="topbar">
+      <div>
+        <h1>Sistema de Consultas DGINCD</h1>
+        <p>Dashboard online con filtros combinados.</p>
+      </div>
+      <div class="actions">
+        <button id="descargarTablasBtn" type="button">Descargar tablas</button>
+        <button id="descargarGraficosBtn" type="button">Descargar gráficos</button>
+        <button id="consultarBtn" type="button">Consultar</button>
+        <button id="logoutBtn" type="button" class="secondary-btn">Salir</button>
+      </div>
+    </header>
+
+    <div class="dashboard-layout">
+      <section class="dashboard-main" aria-live="polite">
+        <section class="status" id="status">Cargando filtros...</section>
+        <section class="kpis" id="kpis"></section>
+        <section class="results" id="results"></section>
+      </section>
+
+      <aside class="filters-panel" aria-label="Filtros de consulta">
+        <h2>Filtros</h2>
+        <fieldset><legend>Fecha</legend><div class="inline-fields"><label>Desde<input id="fechaDesde" type="date" lang="es-AR" value="" /></label><label>Hasta<input id="fechaHasta" type="date" lang="es-AR" value="" /></label></div></fieldset>
+        <fieldset><legend>Edad</legend><div class="inline-fields"><label>Desde<input id="edadDesde" type="number" min="0" max="200" value="0" /></label><label>Hasta<input id="edadHasta" type="number" min="0" max="200" value="200" /></label></div></fieldset>
+        <fieldset><legend>Discapacidad</legend><label>Junta discapacidad<select id="juntaDiscapacidad"><option value="">Todas</option></select></label></fieldset>
+        <fieldset><legend>Sexo</legend><label>Sexo<select id="sexo"><option value="">Todos</option></select></label></fieldset>
+        <fieldset><legend>Orientación Prestacional</legend><label>Orientación<select id="orientacionPrestacional"><option value="">Todas</option></select></label></fieldset>
+        <fieldset><legend>Equipamiento</legend><label>Equipamiento<select id="equipamiento"><option value="">Todos</option></select></label></fieldset>
+        <fieldset><legend>Condición de Actividad</legend><label>Condición<select id="condicionActividad"><option value="">Todas</option></select></label></fieldset>
+        <fieldset><legend>Situación Previsional</legend><label>Situación<select id="situacionPrevisional"><option value="">Todas</option></select></label></fieldset>
+        <fieldset><legend>Ley de Acompañante</legend><label>Ley<select id="leyAcompanante"><option value="">Todas</option></select></label></fieldset>
+      </aside>
+    </div>
+  </main>
+
+  <dialog class="detail-modal" id="otrosModal">
+    <div class="modal-head">
+      <h2>Detalle de Otros - Tipo de Equipamiento</h2>
+      <button id="cerrarModalBtn" type="button" class="secondary-btn">Cerrar</button>
+    </div>
+    <div id="otrosDetalleContenido" class="modal-body">Cargando...</div>
+  </dialog>
+
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
+

@@ -1,0 +1,4 @@
+window.SISTEMA_CONSULTAS_CONFIG = {
+  SUPABASE_URL: "https://yzxchqcsmcrtongahgwb.supabase.co",
+  SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl6eGNocWNzbWNydG9uZ2FoZ3diIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEwMTc4MzgsImV4cCI6MjA5NjU5MzgzOH0.7zuY86C4GJJegGFAv8vw5PllfoQWx_0FNE8-DB82mdQ"
+};
