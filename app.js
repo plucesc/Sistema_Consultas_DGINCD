@@ -15,6 +15,7 @@ const cerrarModalBtn = document.getElementById("cerrarModalBtn");
 
 let lastKpis = null;
 let lastRows = [];
+let lastDiscapacidadMensual = [];
 let authSession = JSON.parse(localStorage.getItem("sistemaConsultasSession") || "null");
 
 const donutGroups = new Set(["Sexo", "Ley de Acompañante", "Orientación Prestacional", "Equipamiento"]);
@@ -118,6 +119,11 @@ function readFilters() {
 function displayGroupName(groupName) { return groupLabels[groupName] || groupName; }
 function formatNumber(value) { return new Intl.NumberFormat("es-AR").format(value || 0); }
 function formatPct(value) { return `${Number(value || 0).toFixed(2)}%`; }
+function formatPeriodo(value) {
+  if (!value) return "Sin periodo";
+  const [year, month] = String(value).slice(0, 10).split("-");
+  return `${month}/${year}`;
+}
 function escapeHtml(value) { return String(value ?? "Sin dato").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;"); }
 
 function groupRows(rows) {
@@ -160,12 +166,32 @@ function renderGaugeCard(totalBase, periodos) {
   return `<article class="gauge-card"><div class="gauge"><svg viewBox="0 0 220 132" aria-hidden="true"><path class="gauge-track" d="M 30 110 A 80 80 0 0 1 190 110" pathLength="100"></path><path class="gauge-value" d="M 30 110 A 80 80 0 0 1 190 110" pathLength="100"></path></svg><div class="gauge-readout"><span>Total Base</span><strong>${formatNumber(totalBase)}</strong><em>Registros únicos · ${formatNumber(periodos)} períodos</em></div></div></article>`;
 }
 
-function renderKpis(kpis, rows) {
+function renderKpis(kpis, rows, discapacidadMensual = []) {
   const item = Array.isArray(kpis) ? kpis[0] : kpis;
   const groups = groupRows(rows);
-  kpisEl.innerHTML = renderGaugeCard(Number(item?.total_base || 0), Number(item?.cantidad_periodos || 0)) + renderVerticalChart("Discapacidad", groups["Discapacidad"] || [], { compact: true });
+  kpisEl.innerHTML = renderGaugeCard(Number(item?.total_base || 0), Number(item?.cantidad_periodos || 0)) + renderVerticalChart("Discapacidad", groups["Discapacidad"] || [], { compact: true }) + renderDiscapacidadMensualTable(discapacidadMensual);
 }
 
+
+function renderDiscapacidadMensualTable(rows) {
+  if (!rows.length) {
+    return `<article class="chart-card disability-table-card"><header><h2>Discapacidad por periodo</h2><strong>0</strong></header><div class="empty">No hay datos mensuales para los filtros seleccionados.</div></article>`;
+  }
+
+  const periods = [...new Set(rows.map(row => String(row.periodo).slice(0, 10)))].sort();
+  const categories = [...new Set(rows.map(row => row.discapacidad || "Sin dato"))].sort((a, b) => a.localeCompare(b));
+  const lookup = new Map(rows.map(row => [`${String(row.periodo).slice(0, 10)}|${row.discapacidad || "Sin dato"}`, Number(row.total || 0)]));
+  const totalsByPeriod = new Map(periods.map(period => [period, categories.reduce((sum, category) => sum + (lookup.get(`${period}|${category}`) || 0), 0)]));
+
+  const head = periods.map(period => `<th>${formatPeriodo(period)}</th>`).join("");
+  const body = categories.map(category => {
+    const cells = periods.map(period => `<td class="num">${formatNumber(lookup.get(`${period}|${category}`) || 0)}</td>`).join("");
+    return `<tr><th>${escapeHtml(category)}</th>${cells}</tr>`;
+  }).join("");
+  const totals = periods.map(period => `<td class="num total-cell">${formatNumber(totalsByPeriod.get(period) || 0)}</td>`).join("");
+
+  return `<article class="chart-card disability-table-card"><header><h2>Discapacidad por periodo</h2><strong>${formatNumber(rows.length)}</strong></header><div class="wide-table"><table><thead><tr><th>Discapacidad</th>${head}</tr></thead><tbody>${body}<tr class="total-row"><th>Total</th>${totals}</tr></tbody></table></div></article>`;
+}
 function renderVerticalChart(groupName, items, options = {}) {
   const totalGrupo = items.reduce((sum, item) => sum + Number(item.total || 0), 0);
   const maxValue = Math.max(...items.map(item => Number(item.total || 0)), 1);
@@ -235,10 +261,10 @@ async function consultar() {
   statusEl.textContent = "Consultando Supabase...";
   try {
     const filters = readFilters();
-    const [kpis, rows] = await Promise.all([rpc("consultar_rango_etario_kpis", filters), rpc("consultar_rango_etario_resumen", filters)]);
-    lastKpis = kpis; lastRows = rows;
+    const [kpis, rows, discapacidadMensual] = await Promise.all([rpc("consultar_rango_etario_kpis", filters), rpc("consultar_rango_etario_resumen", filters), rpc("consultar_discapacidad_mensual", filters)]);
+    lastKpis = kpis; lastRows = rows; lastDiscapacidadMensual = discapacidadMensual;
     statusEl.textContent = "Consulta finalizada.";
-    renderKpis(kpis, rows); renderResults(rows);
+    renderKpis(kpis, rows, discapacidadMensual); renderResults(rows);
   } catch (error) {
     statusEl.textContent = error.message;
     resultsEl.innerHTML = '<div class="empty error">No se pudo completar la consulta.</div>';
@@ -273,5 +299,6 @@ resultsEl.addEventListener("click", event => { if (event.target.closest("[data-o
   if (!authSession?.access_token) { showApp(false); return; }
   try { await iniciarApp(); } catch (error) { loginStatus.textContent = error.message; await signOut(); }
 })();
+
 
 

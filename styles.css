@@ -123,3 +123,12 @@ input, select { width: 100%; border: 1px solid var(--line); border-radius: 6px; 
 .modal-body th, .modal-body td { padding: 8px 10px; border-bottom: 1px solid var(--line); text-align: left; }
 .modal-body th { color: var(--muted); }
 
+
+.disability-table-card { grid-column: 1 / -1; }
+.wide-table { overflow: auto; padding: 12px 14px 14px; }
+.wide-table table { width: 100%; min-width: 760px; border-collapse: collapse; }
+.wide-table th, .wide-table td { padding: 8px 10px; border-bottom: 1px solid var(--line); text-align: right; font-variant-numeric: tabular-nums; }
+.wide-table th:first-child, .wide-table td:first-child { position: sticky; left: 0; z-index: 1; background: var(--panel); text-align: left; }
+.wide-table thead th { color: var(--muted); background: #fbfdff; }
+.wide-table .total-row th, .wide-table .total-row td { font-weight: 800; background: var(--soft); }
+.total-cell { color: var(--brand-dark); }
