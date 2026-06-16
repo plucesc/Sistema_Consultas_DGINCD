@@ -29,6 +29,7 @@ const filterControls = {
   situacion_previsional: document.getElementById("situacionPrevisional"),
   sexo: document.getElementById("sexo"),
   junta_discapacidad: document.getElementById("juntaDiscapacidad"),
+  estado_cud: document.getElementById("estadoCud"),
 };
 
 const groupLabels = {
@@ -40,6 +41,7 @@ const groupLabels = {
   "Situacion previsional": "Situación Previsional",
   "Tipo de orientacion prestacional": "Tipo de Orientación Prestacional",
   "Tipo de equipamiento": "Tipo de Equipamiento",
+  "Estado CUD": "Estado CUD",
 };
 
 const groupOrder = ["Sexo", "Condición de Actividad", "Orientación Prestacional", "Tipo de Orientación Prestacional", "Equipamiento", "Tipo de Equipamiento", "Situación Previsional", "Ley de Acompañante", "Alfabetización"];
@@ -113,6 +115,7 @@ function readFilters() {
     p_situacion_previsional: filterControls.situacion_previsional?.value || null,
     p_sexo: filterControls.sexo?.value || null,
     p_junta_discapacidad: filterControls.junta_discapacidad?.value || null,
+    p_estado_cud: filterControls.estado_cud?.value || null,
   };
 }
 
