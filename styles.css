@@ -27,13 +27,16 @@ button:disabled { opacity: 0.65; cursor: wait; }
 
 .dashboard-layout { display: grid; grid-template-columns: minmax(0, 1fr) 270px; gap: 14px; align-items: start; }
 .dashboard-main { min-width: 0; }
-.filters-panel { position: sticky; top: 10px; display: grid; gap: 7px; max-height: calc(100vh - 20px); overflow: hidden; padding: 10px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; }
+.filters-panel { position: sticky; top: 10px; display: grid; gap: 7px; max-height: calc(100vh - 20px); overflow: auto; padding: 10px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; }
 .filters-panel h2 { font-size: 1.6rem; }
 fieldset { display: grid; gap: 5px; margin: 0; padding: 7px 8px 8px; border: 1px solid var(--line); border-radius: 7px; background: #fbfdff; }
 legend { padding: 0 4px; color: var(--text); font-weight: 800; font-size: 1.2rem; }
 .inline-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
 label { display: grid; gap: 4px; color: var(--muted); font-size: 1.15rem; font-weight: 700; }
 input, select { width: 100%; border: 1px solid var(--line); border-radius: 6px; padding: 7px 8px; font: inherit; color: var(--text); background: white; min-width: 0; }
+.filter-group { border: 1px solid var(--line); border-radius: 7px; background: #fbfdff; }
+.filter-group summary { padding: 8px; cursor: pointer; font-weight: 800; font-size: 1.2rem; }
+.filter-group[open] { display: grid; gap: 7px; padding: 0 8px 8px; }
 
 .status { margin-bottom: 10px; color: var(--muted); min-height: 20px; }
 .kpis { display: grid; grid-template-columns: minmax(280px, 360px) minmax(0, 1fr); gap: 14px; margin-bottom: 14px; align-items: stretch; }
@@ -49,6 +52,12 @@ input, select { width: 100%; border: 1px solid var(--line); border-radius: 6px; 
 .gauge-readout em { color: var(--muted); font-style: normal; font-size: 1.15rem; }
 
 .results { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.map-card { margin-bottom: 14px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.map-card header { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 14px; border-bottom: 1px solid var(--line); }
+.map-card h2 { font-size: 1.7rem; }
+.map-card p { margin-top: 2px; color: var(--muted); font-size: 1.15rem; }
+.map-card header strong { color: var(--brand-dark); font-size: 1.15rem; text-align: right; }
+#heatMap { width: 100%; height: 460px; background: #eef2f5; }
 .chart-card { min-width: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
 .chart-card header { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 12px 14px; border-bottom: 1px solid var(--line); }
 .chart-card h2 { font-size: 1.7rem; }
@@ -101,6 +110,7 @@ input, select { width: 100%; border: 1px solid var(--line); border-radius: 6px; 
   .bar-chart { min-height: 245px; }
   .vbar-item { flex-basis: 72px; grid-template-rows: auto 126px auto auto; }
   .vbar-track { height: 126px; }
+  #heatMap { height: 380px; }
 }
 
 

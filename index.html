@@ -4,6 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Sistema de Consultas DGINCD</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
@@ -36,6 +37,10 @@
       <section class="dashboard-main" aria-live="polite">
         <section class="status" id="status">Cargando filtros...</section>
         <section class="kpis" id="kpis"></section>
+        <section class="map-card" aria-labelledby="mapTitle">
+          <header><div><h2 id="mapTitle">Mapa de calor</h2><p>Densidad geográfica agregada</p></div><strong id="mapCoverage">Sin consultar</strong></header>
+          <div id="heatMap" role="img" aria-label="Mapa de calor de personas según los filtros seleccionados"></div>
+        </section>
         <section class="results" id="results"></section>
       </section>
 
@@ -51,6 +56,14 @@
         <fieldset><legend>Condición de Actividad</legend><label>Condición<select id="condicionActividad"><option value="">Todas</option></select></label></fieldset>
         <fieldset><legend>Situación Previsional</legend><label>Situación<select id="situacionPrevisional"><option value="">Todas</option></select></label></fieldset>
         <fieldset><legend>Ley de Acompañante</legend><label>Ley<select id="leyAcompanante"><option value="">Todas</option></select></label></fieldset>
+        <details class="filter-group">
+          <summary>Vivienda</summary>
+          <label>Particular o colectiva<select id="viviendaParticularColectiva"><option value="">Todas</option></select></label>
+          <label>Convivencia<select id="tipoConvivencia"><option value="">Todas</option></select></label>
+          <label>Tipo de vivienda<select id="tipoVivienda"><option value="">Todas</option></select></label>
+          <label>Tipo estandarizado<select id="tipoViviendaEstandarizada"><option value="">Todas</option></select></label>
+          <label>Vivienda adaptada<select id="viviendaAdaptada"><option value="">Todas</option></select></label>
+        </details>
       </aside>
     </div>
   </main>
@@ -63,6 +76,8 @@
     <div id="otrosDetalleContenido" class="modal-body">Cargando...</div>
   </dialog>
 
+  <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
   <script src="config.js"></script>
   <script src="app.js"></script>
 </body>

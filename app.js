@@ -12,13 +12,18 @@ const descargarGraficosBtn = document.getElementById("descargarGraficosBtn");
 const otrosModal = document.getElementById("otrosModal");
 const otrosDetalleContenido = document.getElementById("otrosDetalleContenido");
 const cerrarModalBtn = document.getElementById("cerrarModalBtn");
+const mapCoverageEl = document.getElementById("mapCoverage");
+const heatMapEl = document.getElementById("heatMap");
 
 let lastKpis = null;
 let lastRows = [];
 let lastDiscapacidadMensual = [];
+let lastMapRows = [];
+let heatMap = null;
+let heatLayer = null;
 let authSession = JSON.parse(localStorage.getItem("sistemaConsultasSession") || "null");
 
-const donutGroups = new Set(["Sexo", "Ley de Acompañante", "Orientación Prestacional", "Equipamiento"]);
+const donutGroups = new Set(["Sexo", "Ley de Acompañante", "Orientación Prestacional", "Equipamiento", "Vivienda Adaptada", "Vivienda Particular o Colectiva"]);
 const chartColors = ["#1464a5", "#2f7fbd", "#64a2d7", "#9bc5e5", "#0f4d7d", "#72b7b2", "#f2c14e", "#e07a5f", "#6c757d"];
 
 const filterControls = {
@@ -30,6 +35,11 @@ const filterControls = {
   sexo: document.getElementById("sexo"),
   junta_discapacidad: document.getElementById("juntaDiscapacidad"),
   estado_cud: document.getElementById("estadoCud"),
+  vivienda_particular_colectiva: document.getElementById("viviendaParticularColectiva"),
+  tipo_convivencia: document.getElementById("tipoConvivencia"),
+  tipo_vivienda: document.getElementById("tipoVivienda"),
+  tipo_vivienda_estandarizada: document.getElementById("tipoViviendaEstandarizada"),
+  vivienda_adaptada: document.getElementById("viviendaAdaptada"),
 };
 
 const groupLabels = {
@@ -42,9 +52,14 @@ const groupLabels = {
   "Tipo de orientacion prestacional": "Tipo de Orientación Prestacional",
   "Tipo de equipamiento": "Tipo de Equipamiento",
   "Estado CUD": "Estado CUD",
+  "Vivienda adaptada": "Vivienda Adaptada",
+  "Vivienda particular o colectiva": "Vivienda Particular o Colectiva",
+  "Tipo de convivencia": "Tipo de Convivencia",
+  "Tipo de vivienda": "Tipo de Vivienda",
+  "Tipo de vivienda estandarizada": "Tipo de Vivienda Estandarizada",
 };
 
-const groupOrder = ["Sexo", "Condición de Actividad", "Orientación Prestacional", "Tipo de Orientación Prestacional", "Equipamiento", "Tipo de Equipamiento", "Situación Previsional", "Ley de Acompañante", "Alfabetización"];
+const groupOrder = ["Sexo", "Condición de Actividad", "Orientación Prestacional", "Tipo de Orientación Prestacional", "Equipamiento", "Tipo de Equipamiento", "Situación Previsional", "Ley de Acompañante", "Alfabetización", "Vivienda Adaptada", "Vivienda Particular o Colectiva", "Tipo de Convivencia", "Tipo de Vivienda", "Tipo de Vivienda Estandarizada"];
 
 function getConfig() {
   const config = window.SISTEMA_CONSULTAS_CONFIG || {};
@@ -116,6 +131,11 @@ function readFilters() {
     p_sexo: filterControls.sexo?.value || null,
     p_junta_discapacidad: filterControls.junta_discapacidad?.value || null,
     p_estado_cud: filterControls.estado_cud?.value || null,
+    p_vivienda_particular_colectiva: filterControls.vivienda_particular_colectiva?.value || null,
+    p_tipo_convivencia: filterControls.tipo_convivencia?.value || null,
+    p_tipo_vivienda: filterControls.tipo_vivienda?.value || null,
+    p_tipo_vivienda_estandarizada: filterControls.tipo_vivienda_estandarizada?.value || null,
+    p_vivienda_adaptada: filterControls.vivienda_adaptada?.value || null,
   };
 }
 
@@ -173,6 +193,40 @@ function renderKpis(kpis, rows, discapacidadMensual = []) {
   const item = Array.isArray(kpis) ? kpis[0] : kpis;
   const groups = groupRows(rows);
   kpisEl.innerHTML = renderGaugeCard(Number(item?.total_base || 0), Number(item?.cantidad_periodos || 0)) + renderVerticalChart("Discapacidad", groups["Discapacidad"] || [], { compact: true }) + renderDiscapacidadMensualTable(discapacidadMensual);
+}
+
+function ensureHeatMap() {
+  if (heatMap || !heatMapEl || !window.L) return heatMap;
+  heatMap = L.map(heatMapEl, { zoomControl: true }).setView([-34.61, -58.44], 11);
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 19,
+    attribution: "&copy; OpenStreetMap",
+  }).addTo(heatMap);
+  return heatMap;
+}
+
+function renderHeatMap(rows) {
+  if (!window.L || typeof L.heatLayer !== "function") {
+    mapCoverageEl.textContent = "No se pudo cargar Leaflet";
+    return;
+  }
+  const map = ensureHeatMap();
+  if (!map) return;
+  if (heatLayer) heatLayer.remove();
+  const validRows = rows.filter(row => Number.isFinite(Number(row.lat)) && Number.isFinite(Number(row.lon)) && Number(row.total) > 0);
+  const maxValue = Math.max(...validRows.map(row => Number(row.total)), 1);
+  const points = validRows.map(row => [Number(row.lat), Number(row.lon), Number(row.total)]);
+  heatLayer = L.heatLayer(points, {
+    radius: 24,
+    blur: 18,
+    maxZoom: 15,
+    max: maxValue,
+    minOpacity: 0.35,
+    gradient: { 0.2: "#2c7bb6", 0.45: "#abd9e9", 0.65: "#ffffbf", 0.82: "#fdae61", 1: "#d7191c" },
+  }).addTo(map);
+  const represented = validRows.reduce((sum, row) => sum + Number(row.total || 0), 0);
+  mapCoverageEl.textContent = `${formatNumber(represented)} personas · ${formatNumber(validRows.length)} celdas protegidas`;
+  requestAnimationFrame(() => map.invalidateSize());
 }
 
 
@@ -266,12 +320,23 @@ async function consultar() {
     const filters = readFilters();
     const [kpis, rows, discapacidadMensual] = await Promise.all([rpc("consultar_rango_etario_kpis", filters), rpc("consultar_rango_etario_resumen", filters), rpc("consultar_discapacidad_mensual", filters)]);
     lastKpis = kpis; lastRows = rows; lastDiscapacidadMensual = discapacidadMensual;
-    statusEl.textContent = "Consulta finalizada.";
     renderKpis(kpis, rows, discapacidadMensual); renderResults(rows);
+    statusEl.textContent = "Indicadores listos. Actualizando mapa...";
+    try {
+      const mapRows = await rpc("consultar_mapa_calor", filters);
+      lastMapRows = mapRows;
+      renderHeatMap(mapRows);
+      statusEl.textContent = "Consulta finalizada.";
+    } catch (mapError) {
+      lastMapRows = [];
+      mapCoverageEl.textContent = "Mapa no disponible";
+      statusEl.textContent = `Indicadores listos. No se pudo actualizar el mapa: ${mapError.message}`;
+    }
   } catch (error) {
     statusEl.textContent = error.message;
     resultsEl.innerHTML = '<div class="empty error">No se pudo completar la consulta.</div>';
     kpisEl.innerHTML = "";
+    mapCoverageEl.textContent = "Mapa no disponible";
   } finally { consultarBtn.disabled = false; }
 }
 
