@@ -37,6 +37,7 @@ input, select { width: 100%; border: 1px solid var(--line); border-radius: 6px; 
 .filter-group { border: 1px solid var(--line); border-radius: 7px; background: #fbfdff; }
 .filter-group summary { padding: 8px; cursor: pointer; font-weight: 800; font-size: 1.2rem; }
 .filter-group[open] { display: grid; gap: 7px; padding: 0 8px 8px; }
+.filter-actions { position: sticky; bottom: -10px; display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin: 0 -10px -10px; padding: 10px; border-top: 1px solid var(--line); background: var(--panel); }
 
 .status { margin-bottom: 10px; color: var(--muted); min-height: 20px; }
 .kpis { display: grid; grid-template-columns: minmax(280px, 360px) minmax(0, 1fr); gap: 14px; margin-bottom: 14px; align-items: stretch; }
@@ -52,7 +53,7 @@ input, select { width: 100%; border: 1px solid var(--line); border-radius: 6px; 
 .gauge-readout em { color: var(--muted); font-style: normal; font-size: 1.15rem; }
 
 .results { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
-.map-card { margin-bottom: 14px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.map-card { margin-top: 14px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
 .map-card header { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 14px; border-bottom: 1px solid var(--line); }
 .map-card h2 { font-size: 1.7rem; }
 .map-card p { margin-top: 2px; color: var(--muted); font-size: 1.15rem; }

@@ -28,7 +28,6 @@
       <div class="actions">
         <button id="descargarTablasBtn" type="button">Descargar tablas</button>
         <button id="descargarGraficosBtn" type="button">Descargar gráficos</button>
-        <button id="consultarBtn" type="button">Consultar</button>
         <button id="logoutBtn" type="button" class="secondary-btn">Salir</button>
       </div>
     </header>
@@ -37,11 +36,11 @@
       <section class="dashboard-main" aria-live="polite">
         <section class="status" id="status">Cargando filtros...</section>
         <section class="kpis" id="kpis"></section>
+        <section class="results" id="results"></section>
         <section class="map-card" aria-labelledby="mapTitle">
-          <header><div><h2 id="mapTitle">Mapa de calor</h2><p>Densidad geográfica agregada</p></div><strong id="mapCoverage">Sin consultar</strong></header>
+          <header><div><h2 id="mapTitle">Mapa de calor</h2><p>Zonas aproximadas de 500 m; se omiten zonas con menos de 5 personas.</p></div><strong id="mapCoverage">Sin consultar</strong></header>
           <div id="heatMap" role="img" aria-label="Mapa de calor de personas según los filtros seleccionados"></div>
         </section>
-        <section class="results" id="results"></section>
       </section>
 
       <aside class="filters-panel" aria-label="Filtros de consulta">
@@ -60,10 +59,13 @@
           <summary>Vivienda</summary>
           <label>Particular o colectiva<select id="viviendaParticularColectiva"><option value="">Todas</option></select></label>
           <label>Convivencia<select id="tipoConvivencia"><option value="">Todas</option></select></label>
-          <label>Tipo de vivienda<select id="tipoVivienda"><option value="">Todas</option></select></label>
           <label>Tipo estandarizado<select id="tipoViviendaEstandarizada"><option value="">Todas</option></select></label>
           <label>Vivienda adaptada<select id="viviendaAdaptada"><option value="">Todas</option></select></label>
         </details>
+        <div class="filter-actions">
+          <button id="consultarBtn" type="button">Aplicar filtros</button>
+          <button id="limpiarFiltrosBtn" type="button" class="secondary-btn">Borrar filtros</button>
+        </div>
       </aside>
     </div>
   </main>

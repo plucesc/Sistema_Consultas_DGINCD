@@ -7,6 +7,7 @@ const statusEl = document.getElementById("status");
 const resultsEl = document.getElementById("results");
 const kpisEl = document.getElementById("kpis");
 const consultarBtn = document.getElementById("consultarBtn");
+const limpiarFiltrosBtn = document.getElementById("limpiarFiltrosBtn");
 const descargarTablasBtn = document.getElementById("descargarTablasBtn");
 const descargarGraficosBtn = document.getElementById("descargarGraficosBtn");
 const otrosModal = document.getElementById("otrosModal");
@@ -37,7 +38,6 @@ const filterControls = {
   estado_cud: document.getElementById("estadoCud"),
   vivienda_particular_colectiva: document.getElementById("viviendaParticularColectiva"),
   tipo_convivencia: document.getElementById("tipoConvivencia"),
-  tipo_vivienda: document.getElementById("tipoVivienda"),
   tipo_vivienda_estandarizada: document.getElementById("tipoViviendaEstandarizada"),
   vivienda_adaptada: document.getElementById("viviendaAdaptada"),
 };
@@ -55,11 +55,10 @@ const groupLabels = {
   "Vivienda adaptada": "Vivienda Adaptada",
   "Vivienda particular o colectiva": "Vivienda Particular o Colectiva",
   "Tipo de convivencia": "Tipo de Convivencia",
-  "Tipo de vivienda": "Tipo de Vivienda",
   "Tipo de vivienda estandarizada": "Tipo de Vivienda Estandarizada",
 };
 
-const groupOrder = ["Sexo", "Condición de Actividad", "Orientación Prestacional", "Tipo de Orientación Prestacional", "Equipamiento", "Tipo de Equipamiento", "Situación Previsional", "Ley de Acompañante", "Alfabetización", "Vivienda Adaptada", "Vivienda Particular o Colectiva", "Tipo de Convivencia", "Tipo de Vivienda", "Tipo de Vivienda Estandarizada"];
+const groupOrder = ["Sexo", "Condición de Actividad", "Orientación Prestacional", "Tipo de Orientación Prestacional", "Equipamiento", "Tipo de Equipamiento", "Situación Previsional", "Ley de Acompañante", "Alfabetización", "Vivienda Adaptada", "Vivienda Particular o Colectiva", "Tipo de Convivencia", "Tipo de Vivienda Estandarizada"];
 
 function getConfig() {
   const config = window.SISTEMA_CONSULTAS_CONFIG || {};
@@ -133,7 +132,7 @@ function readFilters() {
     p_estado_cud: filterControls.estado_cud?.value || null,
     p_vivienda_particular_colectiva: filterControls.vivienda_particular_colectiva?.value || null,
     p_tipo_convivencia: filterControls.tipo_convivencia?.value || null,
-    p_tipo_vivienda: filterControls.tipo_vivienda?.value || null,
+    p_tipo_vivienda: null,
     p_tipo_vivienda_estandarizada: filterControls.tipo_vivienda_estandarizada?.value || null,
     p_vivienda_adaptada: filterControls.vivienda_adaptada?.value || null,
   };
@@ -205,7 +204,7 @@ function ensureHeatMap() {
   return heatMap;
 }
 
-function renderHeatMap(rows) {
+function renderHeatMap(rows, totalSelected) {
   if (!window.L || typeof L.heatLayer !== "function") {
     mapCoverageEl.textContent = "No se pudo cargar Leaflet";
     return;
@@ -225,8 +224,18 @@ function renderHeatMap(rows) {
     gradient: { 0.2: "#2c7bb6", 0.45: "#abd9e9", 0.65: "#ffffbf", 0.82: "#fdae61", 1: "#d7191c" },
   }).addTo(map);
   const represented = validRows.reduce((sum, row) => sum + Number(row.total || 0), 0);
-  mapCoverageEl.textContent = `${formatNumber(represented)} personas · ${formatNumber(validRows.length)} celdas protegidas`;
+  mapCoverageEl.textContent = `${formatNumber(represented)} de ${formatNumber(totalSelected)} filtradas · ${formatNumber(validRows.length)} zonas`;
   requestAnimationFrame(() => map.invalidateSize());
+}
+
+function limpiarFiltros() {
+  document.getElementById("fechaDesde").value = "";
+  document.getElementById("fechaHasta").value = "";
+  document.getElementById("edadDesde").value = "0";
+  document.getElementById("edadHasta").value = "200";
+  Object.values(filterControls).forEach(control => { control.value = ""; });
+  document.querySelectorAll(".filter-group[open]").forEach(group => { group.open = false; });
+  consultar();
 }
 
 
@@ -315,6 +324,7 @@ function descargarGraficos() { if (lastRows.length) downloadBlob("reporte_sistem
 
 async function consultar() {
   consultarBtn.disabled = true;
+  limpiarFiltrosBtn.disabled = true;
   statusEl.textContent = "Consultando Supabase...";
   try {
     const filters = readFilters();
@@ -325,7 +335,8 @@ async function consultar() {
     try {
       const mapRows = await rpc("consultar_mapa_calor", filters);
       lastMapRows = mapRows;
-      renderHeatMap(mapRows);
+      const kpiItem = Array.isArray(kpis) ? kpis[0] : kpis;
+      renderHeatMap(mapRows, Number(kpiItem?.total_base || 0));
       statusEl.textContent = "Consulta finalizada.";
     } catch (mapError) {
       lastMapRows = [];
@@ -337,7 +348,7 @@ async function consultar() {
     resultsEl.innerHTML = '<div class="empty error">No se pudo completar la consulta.</div>';
     kpisEl.innerHTML = "";
     mapCoverageEl.textContent = "Mapa no disponible";
-  } finally { consultarBtn.disabled = false; }
+  } finally { consultarBtn.disabled = false; limpiarFiltrosBtn.disabled = false; }
 }
 
 async function iniciarApp() {
@@ -358,6 +369,7 @@ loginForm.addEventListener("submit", async event => {
 
 logoutBtn.addEventListener("click", signOut);
 consultarBtn.addEventListener("click", consultar);
+limpiarFiltrosBtn.addEventListener("click", limpiarFiltros);
 descargarTablasBtn.addEventListener("click", descargarTablas);
 descargarGraficosBtn.addEventListener("click", descargarGraficos);
 cerrarModalBtn.addEventListener("click", () => otrosModal.close());
