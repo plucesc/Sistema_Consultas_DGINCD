@@ -239,11 +239,11 @@ function heatStyleForZoom(map) {
   const zoom = map.getZoom();
   const cabaLatitude = -34.61;
   const metersPerPixel = 156543.03392 * Math.cos((cabaLatitude * Math.PI) / 180) / Math.pow(2, zoom);
-  const targetMeters = 190;
-  const radius = Math.max(18, Math.min(46, Math.round(targetMeters / metersPerPixel)));
+  const targetMeters = 130;
+  const radius = Math.max(16, Math.min(34, Math.round(targetMeters / metersPerPixel)));
   return {
     radius,
-    blur: Math.round(radius * 1.35),
+    blur: Math.round(radius * 1.15),
   };
 }
 
@@ -300,7 +300,7 @@ function renderHeatMap(rows, totalSelected) {
   }).addTo(map);
   if (heatLayer._canvas) {
     heatLayer._canvas.classList.add("leaflet-heatmap-layer");
-    heatLayer._canvas.style.opacity = "0.82";
+    heatLayer._canvas.style.opacity = "0.68";
   }
   if (heatLayer._heat?.radius) {
     heatLayer._heat.radius(heatStyle.radius, heatStyle.blur);
@@ -308,7 +308,7 @@ function renderHeatMap(rows, totalSelected) {
   map.off("zoomend", updateClassicHeatStyle);
   map.on("zoomend", updateClassicHeatStyle);
   const represented = validRows.reduce((sum, row) => sum + Number(row.total || 0), 0);
-  mapCoverageEl.textContent = `${formatNumber(represented)} de ${formatNumber(totalSelected)} filtradas · ${formatNumber(validRows.length)} zonas`;
+  mapCoverageEl.textContent = `${formatNumber(represented)} de ${formatNumber(totalSelected)} filtradas · ${formatNumber(validRows.length)} bloques`;
   requestAnimationFrame(() => map.invalidateSize());
 }
 
