@@ -207,32 +207,58 @@ function ensureHeatMap() {
 }
 
 function heatColor(value, maxValue) {
-  const ratio = Math.max(0, Math.min(1, Math.sqrt(Number(value || 0) / Math.max(maxValue, 1))));
-  if (ratio < 0.22) return "#2c7bb6";
-  if (ratio < 0.42) return "#74add1";
-  if (ratio < 0.62) return "#ffffbf";
-  if (ratio < 0.82) return "#fdae61";
-  return "#d7191c";
+  const ratio = Math.max(0, Math.min(1, Number(value || 0) / Math.max(maxValue, 1)));
+  if (ratio < 0.18) return [44, 123, 182];
+  if (ratio < 0.38) return [116, 173, 209];
+  if (ratio < 0.58) return [255, 255, 191];
+  if (ratio < 0.78) return [253, 174, 97];
+  return [215, 25, 28];
 }
 
-function heatCellBounds(lat, lon) {
-  return { halfLat: 0.00225, halfLon: 0.00275, lat, lon };
+function interpolateColor(value, maxValue) {
+  const ratio = Math.max(0, Math.min(1, Number(value || 0) / Math.max(maxValue, 1)));
+  const stops = [
+    [0, [44, 123, 182]],
+    [0.35, [171, 217, 233]],
+    [0.55, [255, 255, 191]],
+    [0.75, [253, 174, 97]],
+    [1, [215, 25, 28]],
+  ];
+  for (let i = 1; i < stops.length; i += 1) {
+    const [stop, color] = stops[i];
+    const [prevStop, prevColor] = stops[i - 1];
+    if (ratio <= stop) {
+      const local = (ratio - prevStop) / (stop - prevStop || 1);
+      return color.map((channel, index) => Math.round(prevColor[index] + (channel - prevColor[index]) * local));
+    }
+  }
+  return stops[stops.length - 1][1];
 }
 
-function createHeatGridLayer(rows, maxValue) {
+function clearLegacyMapOverlays(map) {
+  map.getPanes().overlayPane.querySelectorAll("svg, canvas").forEach(node => node.remove());
+}
+
+function createHeatRasterLayer(rows) {
   return L.Layer.extend({
     onAdd(map) {
       this._map = map;
-      this._canvas = L.DomUtil.create("canvas", "heat-grid-layer");
+      this._points = rows.map(row => ({
+        lat: Number(row.lat),
+        lon: Number(row.lon),
+        total: Number(row.total || 0),
+      }));
+      this._canvas = L.DomUtil.create("canvas", "heat-raster-layer");
       this._canvas.style.position = "absolute";
       this._canvas.style.pointerEvents = "none";
+      this._canvas.style.opacity = "0.74";
       this._ctx = this._canvas.getContext("2d");
       map.getPanes().overlayPane.appendChild(this._canvas);
-      map.on("move zoom resize", this._reset, this);
+      map.on("moveend zoomend resize", this._reset, this);
       this._reset();
     },
     onRemove(map) {
-      map.off("move zoom resize", this._reset, this);
+      map.off("moveend zoomend resize", this._reset, this);
       L.DomUtil.remove(this._canvas);
     },
     _reset() {
@@ -241,27 +267,37 @@ function createHeatGridLayer(rows, maxValue) {
       L.DomUtil.setPosition(this._canvas, topLeft);
       this._canvas.width = size.x;
       this._canvas.height = size.y;
-      this._draw(topLeft);
+      this._draw();
     },
-    _draw(topLeft) {
+    _draw() {
       const ctx = this._ctx;
-      ctx.clearRect(0, 0, this._canvas.width, this._canvas.height);
-      rows.forEach(row => {
-        const total = Number(row.total || 0);
-        const lat = Number(row.lat);
-        const lon = Number(row.lon);
-        const cell = heatCellBounds(lat, lon);
-        const nw = this._map.latLngToLayerPoint([cell.lat + cell.halfLat, cell.lon - cell.halfLon]).subtract(topLeft);
-        const se = this._map.latLngToLayerPoint([cell.lat - cell.halfLat, cell.lon + cell.halfLon]).subtract(topLeft);
-        const x = Math.floor(nw.x);
-        const y = Math.floor(nw.y);
-        const width = Math.ceil(se.x - nw.x) + 1;
-        const height = Math.ceil(se.y - nw.y) + 1;
-        ctx.globalAlpha = 0.58;
-        ctx.fillStyle = heatColor(total, maxValue);
-        ctx.fillRect(x, y, width, height);
+      const width = this._canvas.width;
+      const height = this._canvas.height;
+      const step = 6;
+      const zoom = this._map.getZoom();
+      const radius = Math.max(42, Math.min(130, 72 + (zoom - 11) * 5));
+      const projected = this._points.map(point => {
+        const layerPoint = this._map.latLngToContainerPoint([point.lat, point.lon]);
+        return { x: layerPoint.x, y: layerPoint.y, total: point.total };
       });
-      ctx.globalAlpha = 1;
+      ctx.clearRect(0, 0, width, height);
+      for (let y = 0; y < height; y += step) {
+        for (let x = 0; x < width; x += step) {
+          let value = 0;
+          for (const point of projected) {
+            const dx = x - point.x;
+            const dy = y - point.y;
+            const distSq = dx * dx + dy * dy;
+            if (distSq > radius * radius) continue;
+            const weight = 1 - distSq / (radius * radius);
+            value += point.total * weight * weight;
+          }
+          if (value <= 0) continue;
+          const [r, g, b] = interpolateColor(value, 900);
+          ctx.fillStyle = `rgba(${r}, ${g}, ${b}, 0.58)`;
+          ctx.fillRect(x, y, step + 1, step + 1);
+        }
+      }
     },
   });
 }
@@ -274,10 +310,10 @@ function renderHeatMap(rows, totalSelected) {
   const map = ensureHeatMap();
   if (!map) return;
   if (heatLayer) heatLayer.remove();
+  clearLegacyMapOverlays(map);
   const validRows = rows.filter(row => Number.isFinite(Number(row.lat)) && Number.isFinite(Number(row.lon)) && Number(row.total) > 0);
-  const maxValue = Math.max(...validRows.map(row => Number(row.total)), 1);
-  const HeatGridLayer = createHeatGridLayer(validRows, maxValue);
-  heatLayer = new HeatGridLayer().addTo(map);
+  const HeatRasterLayer = createHeatRasterLayer(validRows);
+  heatLayer = new HeatRasterLayer().addTo(map);
   const represented = validRows.reduce((sum, row) => sum + Number(row.total || 0), 0);
   mapCoverageEl.textContent = `${formatNumber(represented)} de ${formatNumber(totalSelected)} filtradas · ${formatNumber(validRows.length)} zonas`;
   requestAnimationFrame(() => map.invalidateSize());
