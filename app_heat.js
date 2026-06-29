@@ -61,6 +61,7 @@ const groupLabels = {
 };
 
 const groupOrder = ["Sexo", "Condición de Actividad", "Orientación Prestacional", "Tipo de Orientación Prestacional", "Equipamiento", "Tipo de Equipamiento", "Situación Previsional", "Ley de Acompañante", "Alfabetización", "Vivienda Adaptada", "Vivienda Particular o Colectiva", "Tipo de Convivencia", "Tipo de Vivienda Estandarizada"];
+const multiValueFilters = new Set(["condicion_actividad", "situacion_previsional", "junta_discapacidad"]);
 
 function getConfig() {
   const config = window.SISTEMA_CONSULTAS_CONFIG || {};
@@ -117,26 +118,33 @@ function parseDateInput(value) {
   return `${match[3]}-${match[2].padStart(2, "0")}-${match[1].padStart(2, "0")}`;
 }
 
+function readFilterValue(control, filterName) {
+  if (!control) return null;
+  if (!multiValueFilters.has(filterName)) return control.value || null;
+  const values = Array.from(control.selectedOptions).map(option => option.value).filter(Boolean);
+  return values.length ? values.join("|") : null;
+}
+
 function readFilters() {
   return {
     p_edad_desde: Number(document.getElementById("edadDesde").value || 0),
     p_edad_hasta: Number(document.getElementById("edadHasta").value || 200),
     p_fecha_desde: parseDateInput(document.getElementById("fechaDesde").value),
     p_fecha_hasta: parseDateInput(document.getElementById("fechaHasta").value),
-    p_orientacion_prestacional: filterControls.orientacion_prestacional?.value || null,
-    p_ley_acompanante: filterControls.ley_acompanante?.value || null,
-    p_equipamiento: filterControls.equipamiento?.value || null,
+    p_orientacion_prestacional: readFilterValue(filterControls.orientacion_prestacional, "orientacion_prestacional"),
+    p_ley_acompanante: readFilterValue(filterControls.ley_acompanante, "ley_acompanante"),
+    p_equipamiento: readFilterValue(filterControls.equipamiento, "equipamiento"),
     p_alfabetizacion: null,
-    p_condicion_actividad: filterControls.condicion_actividad?.value || null,
-    p_situacion_previsional: filterControls.situacion_previsional?.value || null,
-    p_sexo: filterControls.sexo?.value || null,
-    p_junta_discapacidad: filterControls.junta_discapacidad?.value || null,
-    p_estado_cud: filterControls.estado_cud?.value || null,
-    p_vivienda_particular_colectiva: filterControls.vivienda_particular_colectiva?.value || null,
-    p_tipo_convivencia: filterControls.tipo_convivencia?.value || null,
+    p_condicion_actividad: readFilterValue(filterControls.condicion_actividad, "condicion_actividad"),
+    p_situacion_previsional: readFilterValue(filterControls.situacion_previsional, "situacion_previsional"),
+    p_sexo: readFilterValue(filterControls.sexo, "sexo"),
+    p_junta_discapacidad: readFilterValue(filterControls.junta_discapacidad, "junta_discapacidad"),
+    p_estado_cud: readFilterValue(filterControls.estado_cud, "estado_cud"),
+    p_vivienda_particular_colectiva: readFilterValue(filterControls.vivienda_particular_colectiva, "vivienda_particular_colectiva"),
+    p_tipo_convivencia: readFilterValue(filterControls.tipo_convivencia, "tipo_convivencia"),
     p_tipo_vivienda: null,
-    p_tipo_vivienda_estandarizada: filterControls.tipo_vivienda_estandarizada?.value || null,
-    p_vivienda_adaptada: filterControls.vivienda_adaptada?.value || null,
+    p_tipo_vivienda_estandarizada: readFilterValue(filterControls.tipo_vivienda_estandarizada, "tipo_vivienda_estandarizada"),
+    p_vivienda_adaptada: readFilterValue(filterControls.vivienda_adaptada, "vivienda_adaptada"),
   };
 }
 
@@ -236,6 +244,7 @@ function updateClassicHeatStyle() {
 function removeLegacyHeatArtifacts() {
   if (!heatMapEl) return;
   heatMapEl.querySelectorAll(".heat-zone-cell, .leaflet-marker-icon.heat-zone-cell, .leaflet-marker-pane .heat-zone-cell").forEach(node => node.remove());
+  heatMapEl.querySelectorAll(".leaflet-marker-pane .leaflet-marker-icon, .leaflet-marker-pane .leaflet-marker-shadow").forEach(node => node.remove());
   heatMapEl.querySelectorAll(".leaflet-overlay-pane svg, .leaflet-overlay-pane path").forEach(node => node.remove());
   heatMapEl.querySelectorAll(".leaflet-overlay-pane canvas").forEach(node => {
     if (!node.classList.contains("leaflet-heatmap-layer")) node.remove();
@@ -301,7 +310,10 @@ function limpiarFiltros() {
   document.getElementById("fechaHasta").value = "";
   document.getElementById("edadDesde").value = "0";
   document.getElementById("edadHasta").value = "200";
-  Object.values(filterControls).forEach(control => { control.value = ""; });
+  Object.entries(filterControls).forEach(([filterName, control]) => {
+    if (multiValueFilters.has(filterName)) Array.from(control.options).forEach(option => { option.selected = false; });
+    control.value = "";
+  });
   document.querySelectorAll(".filter-group[open]").forEach(group => { group.open = false; });
   consultar();
 }

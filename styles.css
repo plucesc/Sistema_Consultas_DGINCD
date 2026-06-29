@@ -34,6 +34,8 @@ legend { padding: 0 4px; color: var(--text); font-weight: 800; font-size: 1.2rem
 .inline-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
 label { display: grid; gap: 4px; color: var(--muted); font-size: 1.15rem; font-weight: 700; }
 input, select { width: 100%; border: 1px solid var(--line); border-radius: 6px; padding: 7px 8px; font: inherit; color: var(--text); background: white; min-width: 0; }
+select[multiple] { min-height: 112px; padding: 5px; }
+select[multiple] option { padding: 4px 6px; }
 .filter-group { border: 1px solid var(--line); border-radius: 7px; background: #fbfdff; }
 .filter-group summary { padding: 8px; cursor: pointer; font-weight: 800; font-size: 1.2rem; }
 .filter-group[open] { display: grid; gap: 7px; padding: 0 8px 8px; }
@@ -64,6 +66,10 @@ input, select { width: 100%; border: 1px solid var(--line); border-radius: 6px; 
 #heatMap .leaflet-marker-pane .heat-zone-cell,
 #heatMap .leaflet-overlay-pane svg,
 #heatMap .leaflet-overlay-pane path {
+  display: none !important;
+}
+#heatMap .leaflet-marker-pane .leaflet-marker-icon:not(.leaflet-div-icon),
+#heatMap .leaflet-marker-pane .leaflet-marker-shadow {
   display: none !important;
 }
 .map-actions { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
