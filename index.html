@@ -37,8 +37,8 @@
         <section class="status" id="status">Cargando filtros...</section>
         <section class="kpis" id="kpis"></section>
         <section class="results" id="results"></section>
-        <section class="map-card" aria-labelledby="mapTitle">
-          <header><div><h2 id="mapTitle">Mapa de calor</h2><p>Zonas aproximadas de 500 m; se omiten zonas con menos de 5 personas.</p></div><strong id="mapCoverage">Sin consultar</strong></header>
+        <section class="map-card" id="mapCard" aria-labelledby="mapTitle">
+          <header><div><h2 id="mapTitle">Mapa de calor</h2><p>Zonas aproximadas de 500 m; se omiten zonas con menos de 5 personas.</p></div><div class="map-actions"><strong id="mapCoverage">Sin consultar</strong><button type="button" id="toggleMapFullscreen" class="icon-btn" title="Maximizar mapa" aria-label="Maximizar mapa">⛶</button></div></header>
           <div id="heatMap" role="img" aria-label="Mapa de calor de personas según los filtros seleccionados"></div>
         </section>
       </section>

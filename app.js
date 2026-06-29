@@ -15,6 +15,8 @@ const otrosDetalleContenido = document.getElementById("otrosDetalleContenido");
 const cerrarModalBtn = document.getElementById("cerrarModalBtn");
 const mapCoverageEl = document.getElementById("mapCoverage");
 const heatMapEl = document.getElementById("heatMap");
+const mapCard = document.getElementById("mapCard");
+const toggleMapFullscreenBtn = document.getElementById("toggleMapFullscreen");
 
 let lastKpis = null;
 let lastRows = [];
@@ -22,6 +24,8 @@ let lastDiscapacidadMensual = [];
 let lastMapRows = [];
 let heatMap = null;
 let heatLayer = null;
+let heatPoints = [];
+let heatMaxValue = 1;
 let authSession = JSON.parse(localStorage.getItem("sistemaConsultasSession") || "null");
 
 const donutGroups = new Set(["Sexo", "Ley de Acompañante", "Orientación Prestacional", "Equipamiento", "Vivienda Adaptada", "Vivienda Particular o Colectiva"]);
@@ -201,7 +205,24 @@ function ensureHeatMap() {
     maxZoom: 19,
     attribution: "&copy; OpenStreetMap",
   }).addTo(heatMap);
+  heatMap.on("zoomend", updateHeatStyleForZoom);
   return heatMap;
+}
+
+function heatRadiusForZoom(map) {
+  const zoom = map.getZoom();
+  const metersPerPixel = 156543.03392 * Math.cos((-34.61 * Math.PI) / 180) / Math.pow(2, zoom);
+  return Math.max(22, Math.min(150, Math.round(450 / metersPerPixel)));
+}
+
+function updateHeatStyleForZoom() {
+  if (!heatMap || !heatLayer || !heatLayer._heat) return;
+  const radius = heatRadiusForZoom(heatMap);
+  heatLayer.options.radius = radius;
+  heatLayer.options.blur = Math.round(radius * 0.62);
+  heatLayer.options.maxZoom = heatMap.getZoom();
+  heatLayer._heat.radius(heatLayer.options.radius, heatLayer.options.blur);
+  heatLayer.redraw();
 }
 
 function renderHeatMap(rows, totalSelected) {
@@ -213,19 +234,30 @@ function renderHeatMap(rows, totalSelected) {
   if (!map) return;
   if (heatLayer) heatLayer.remove();
   const validRows = rows.filter(row => Number.isFinite(Number(row.lat)) && Number.isFinite(Number(row.lon)) && Number(row.total) > 0);
-  const maxValue = Math.max(...validRows.map(row => Number(row.total)), 1);
-  const points = validRows.map(row => [Number(row.lat), Number(row.lon), Number(row.total)]);
-  heatLayer = L.heatLayer(points, {
-    radius: 24,
-    blur: 18,
-    maxZoom: 15,
-    max: maxValue,
-    minOpacity: 0.35,
+  heatMaxValue = Math.max(...validRows.map(row => Number(row.total)), 1);
+  heatPoints = validRows.map(row => [Number(row.lat), Number(row.lon), Number(row.total)]);
+  const radius = heatRadiusForZoom(map);
+  heatLayer = L.heatLayer(heatPoints, {
+    radius,
+    blur: Math.round(radius * 0.62),
+    maxZoom: map.getZoom(),
+    max: heatMaxValue,
+    minOpacity: 0.48,
     gradient: { 0.2: "#2c7bb6", 0.45: "#abd9e9", 0.65: "#ffffbf", 0.82: "#fdae61", 1: "#d7191c" },
   }).addTo(map);
+  updateHeatStyleForZoom();
   const represented = validRows.reduce((sum, row) => sum + Number(row.total || 0), 0);
   mapCoverageEl.textContent = `${formatNumber(represented)} de ${formatNumber(totalSelected)} filtradas · ${formatNumber(validRows.length)} zonas`;
   requestAnimationFrame(() => map.invalidateSize());
+}
+
+async function toggleMapFullscreen() {
+  if (!mapCard || !document.fullscreenEnabled) return;
+  if (document.fullscreenElement === mapCard) {
+    await document.exitFullscreen();
+  } else {
+    await mapCard.requestFullscreen();
+  }
 }
 
 function limpiarFiltros() {
@@ -374,6 +406,19 @@ descargarTablasBtn.addEventListener("click", descargarTablas);
 descargarGraficosBtn.addEventListener("click", descargarGraficos);
 cerrarModalBtn.addEventListener("click", () => otrosModal.close());
 resultsEl.addEventListener("click", event => { if (event.target.closest("[data-otros-equipamiento]")) mostrarDetalleOtrosEquipamiento().catch(error => { otrosDetalleContenido.textContent = error.message; }); });
+toggleMapFullscreenBtn?.addEventListener("click", () => toggleMapFullscreen().catch(() => {}));
+document.addEventListener("fullscreenchange", () => {
+  const expanded = document.fullscreenElement === mapCard;
+  if (toggleMapFullscreenBtn) {
+    toggleMapFullscreenBtn.textContent = expanded ? "×" : "⛶";
+    toggleMapFullscreenBtn.title = expanded ? "Salir de pantalla completa" : "Maximizar mapa";
+    toggleMapFullscreenBtn.setAttribute("aria-label", toggleMapFullscreenBtn.title);
+  }
+  requestAnimationFrame(() => {
+    heatMap?.invalidateSize();
+    updateHeatStyleForZoom();
+  });
+});
 
 (async function init() {
   if (!authSession?.access_token) { showApp(false); return; }
