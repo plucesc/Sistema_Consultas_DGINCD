@@ -207,120 +207,46 @@ function ensureHeatMap() {
 }
 
 function heatColor(value, maxValue) {
-  const ratio = Math.max(0, Math.min(1, Number(value || 0) / Math.max(maxValue, 1)));
-  if (ratio < 0.18) return [44, 123, 182];
-  if (ratio < 0.38) return [116, 173, 209];
-  if (ratio < 0.58) return [255, 255, 191];
-  if (ratio < 0.78) return [253, 174, 97];
-  return [215, 25, 28];
+  const ratio = Math.max(0, Math.min(1, Math.sqrt(Number(value || 0) / Math.max(maxValue, 1))));
+  if (ratio < 0.2) return "#2c7bb6";
+  if (ratio < 0.4) return "#74add1";
+  if (ratio < 0.6) return "#ffffbf";
+  if (ratio < 0.8) return "#fdae61";
+  return "#d7191c";
 }
 
-function interpolateColor(value, maxValue) {
-  const ratio = Math.max(0, Math.min(1, Number(value || 0) / Math.max(maxValue, 1)));
-  const stops = [
-    [0, [44, 123, 182]],
-    [0.35, [171, 217, 233]],
-    [0.55, [255, 255, 191]],
-    [0.75, [253, 174, 97]],
-    [1, [215, 25, 28]],
-  ];
-  for (let i = 1; i < stops.length; i += 1) {
-    const [stop, color] = stops[i];
-    const [prevStop, prevColor] = stops[i - 1];
-    if (ratio <= stop) {
-      const local = (ratio - prevStop) / (stop - prevStop || 1);
-      return color.map((channel, index) => Math.round(prevColor[index] + (channel - prevColor[index]) * local));
-    }
-  }
-  return stops[stops.length - 1][1];
+function cellSizeForZoom(map) {
+  const zoom = map.getZoom();
+  if (zoom <= 11) return 28;
+  if (zoom === 12) return 34;
+  if (zoom === 13) return 42;
+  if (zoom === 14) return 52;
+  return 64;
 }
 
-function clearLegacyMapOverlays(map) {
-  map.getPanes().overlayPane.querySelectorAll("svg, canvas").forEach(node => node.remove());
-}
-
-function createHeatRasterLayer(rows) {
-  return L.Layer.extend({
-    onAdd(map) {
-      this._map = map;
-      this._points = rows.map(row => ({
-        lat: Number(row.lat),
-        lon: Number(row.lon),
-        total: Number(row.total || 0),
-      }));
-      this._canvas = L.DomUtil.create("canvas", "heat-raster-layer");
-      this._canvas.style.position = "absolute";
-      this._canvas.style.pointerEvents = "none";
-      this._canvas.style.opacity = "0.74";
-      this._ctx = this._canvas.getContext("2d");
-      this._buffer = document.createElement("canvas");
-      this._bufferCtx = this._buffer.getContext("2d");
-      map.getPanes().overlayPane.appendChild(this._canvas);
-      map.on("moveend zoomend resize", this._reset, this);
-      this._reset();
-    },
-    onRemove(map) {
-      map.off("moveend zoomend resize", this._reset, this);
-      L.DomUtil.remove(this._canvas);
-    },
-    _reset() {
-      const size = this._map.getSize();
-      const topLeft = this._map.containerPointToLayerPoint([0, 0]);
-      L.DomUtil.setPosition(this._canvas, topLeft);
-      this._canvas.width = size.x;
-      this._canvas.height = size.y;
-      this._draw();
-    },
-    _draw() {
-      const ctx = this._ctx;
-      const width = this._canvas.width;
-      const height = this._canvas.height;
-      const scale = 4;
-      const bufferWidth = Math.max(1, Math.ceil(width / scale));
-      const bufferHeight = Math.max(1, Math.ceil(height / scale));
-      const zoom = this._map.getZoom();
-      const radius = Math.max(42, Math.min(130, 72 + (zoom - 11) * 5));
-      const radiusScaled = radius / scale;
-      const radiusSq = radiusScaled * radiusScaled;
-      const projected = this._points.map(point => {
-        const layerPoint = this._map.latLngToContainerPoint([point.lat, point.lon]);
-        return { x: layerPoint.x / scale, y: layerPoint.y / scale, total: point.total };
-      }).filter(point => (
-        point.x >= -radiusScaled &&
-        point.y >= -radiusScaled &&
-        point.x <= bufferWidth + radiusScaled &&
-        point.y <= bufferHeight + radiusScaled
-      ));
-      this._buffer.width = bufferWidth;
-      this._buffer.height = bufferHeight;
-      const image = this._bufferCtx.createImageData(bufferWidth, bufferHeight);
-      ctx.clearRect(0, 0, width, height);
-      for (let y = 0; y < bufferHeight; y += 1) {
-        for (let x = 0; x < bufferWidth; x += 1) {
-          let value = 0;
-          for (const point of projected) {
-            const dx = x - point.x;
-            const dy = y - point.y;
-            const distSq = dx * dx + dy * dy;
-            if (distSq > radiusSq) continue;
-            const weight = 1 - distSq / radiusSq;
-            value += point.total * weight * weight;
-          }
-          if (value <= 0) continue;
-          const [r, g, b] = interpolateColor(value, 900);
-          const offset = (y * bufferWidth + x) * 4;
-          image.data[offset] = r;
-          image.data[offset + 1] = g;
-          image.data[offset + 2] = b;
-          image.data[offset + 3] = 150;
-        }
-      }
-      this._bufferCtx.putImageData(image, 0, 0);
-      ctx.imageSmoothingEnabled = true;
-      ctx.imageSmoothingQuality = "high";
-      ctx.drawImage(this._buffer, 0, 0, width, height);
-    },
+function createHeatZoneMarker(row, maxValue, size) {
+  const total = Number(row.total || 0);
+  const color = heatColor(total, maxValue);
+  const icon = L.divIcon({
+    className: "heat-zone-cell",
+    html: `<div style="background:${color}" title="${formatNumber(total)} personas"></div>`,
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
   });
+  return L.marker([Number(row.lat), Number(row.lon)], {
+    icon,
+    interactive: false,
+    keyboard: false,
+  });
+}
+
+function redrawHeatZones() {
+  if (!heatMap || !heatLayer || !lastMapRows.length) return;
+  const validRows = lastMapRows.filter(row => Number.isFinite(Number(row.lat)) && Number.isFinite(Number(row.lon)) && Number(row.total) > 0);
+  const maxValue = Math.max(...validRows.map(row => Number(row.total)), 1);
+  const size = cellSizeForZoom(heatMap);
+  heatLayer.clearLayers();
+  validRows.forEach(row => heatLayer.addLayer(createHeatZoneMarker(row, maxValue, size)));
 }
 
 function renderHeatMap(rows, totalSelected) {
@@ -331,10 +257,12 @@ function renderHeatMap(rows, totalSelected) {
   const map = ensureHeatMap();
   if (!map) return;
   if (heatLayer) heatLayer.remove();
-  clearLegacyMapOverlays(map);
   const validRows = rows.filter(row => Number.isFinite(Number(row.lat)) && Number.isFinite(Number(row.lon)) && Number(row.total) > 0);
-  const HeatRasterLayer = createHeatRasterLayer(validRows);
-  heatLayer = new HeatRasterLayer().addTo(map);
+  const maxValue = Math.max(...validRows.map(row => Number(row.total)), 1);
+  const size = cellSizeForZoom(map);
+  heatLayer = L.layerGroup(validRows.map(row => createHeatZoneMarker(row, maxValue, size))).addTo(map);
+  map.off("zoomend", redrawHeatZones);
+  map.on("zoomend", redrawHeatZones);
   const represented = validRows.reduce((sum, row) => sum + Number(row.total || 0), 0);
   mapCoverageEl.textContent = `${formatNumber(represented)} de ${formatNumber(totalSelected)} filtradas · ${formatNumber(validRows.length)} zonas`;
   requestAnimationFrame(() => map.invalidateSize());
