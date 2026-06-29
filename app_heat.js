@@ -208,7 +208,7 @@ function ensureHeatMap() {
 
 function heatColor(value, maxValue) {
   const ratio = Math.max(0, Math.min(1, Number(value || 0) / Math.max(maxValue, 1)));
-  return 0.28 + Math.pow(ratio, 0.55) * 0.72;
+  return 0.22 + Math.pow(ratio, 0.62) * 0.55;
 }
 
 function heatStyleForZoom(map) {
@@ -235,12 +235,11 @@ function updateClassicHeatStyle() {
 
 function removeLegacyHeatArtifacts() {
   if (!heatMapEl) return;
-  heatMapEl.querySelectorAll(".heat-zone-cell").forEach(node => {
-    const marker = node.closest(".leaflet-marker-icon") || node;
-    marker.remove();
+  heatMapEl.querySelectorAll(".heat-zone-cell, .leaflet-marker-icon.heat-zone-cell, .leaflet-marker-pane .heat-zone-cell").forEach(node => node.remove());
+  heatMapEl.querySelectorAll(".leaflet-overlay-pane svg, .leaflet-overlay-pane path").forEach(node => node.remove());
+  heatMapEl.querySelectorAll(".leaflet-overlay-pane canvas").forEach(node => {
+    if (!node.classList.contains("leaflet-heatmap-layer")) node.remove();
   });
-  heatMapEl.querySelectorAll(".leaflet-overlay-pane svg").forEach(node => node.remove());
-  heatMapEl.querySelectorAll(".leaflet-overlay-pane canvas").forEach(node => node.remove());
 }
 
 function renderHeatMap(rows, totalSelected) {
@@ -264,16 +263,20 @@ function renderHeatMap(rows, totalSelected) {
     radius: heatStyle.radius,
     blur: heatStyle.blur,
     maxZoom: 9,
-    max: 1,
-    minOpacity: 0.38,
+    max: 1.25,
+    minOpacity: 0.30,
     gradient: {
-      0.18: "#2c7bb6",
-      0.38: "#74add1",
+      0.16: "#2c7bb6",
+      0.36: "#74add1",
       0.58: "#ffffbf",
-      0.78: "#fdae61",
-      1: "#d7191c",
+      0.80: "#fdae61",
+      1: "#d95f3f",
     },
   }).addTo(map);
+  if (heatLayer._canvas) {
+    heatLayer._canvas.classList.add("leaflet-heatmap-layer");
+    heatLayer._canvas.style.opacity = "0.82";
+  }
   if (heatLayer._heat?.radius) {
     heatLayer._heat.radius(heatStyle.radius, heatStyle.blur);
   }
