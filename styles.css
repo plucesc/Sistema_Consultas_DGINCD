@@ -59,8 +59,6 @@ input, select { width: 100%; border: 1px solid var(--line); border-radius: 6px; 
 .map-card p { margin-top: 2px; color: var(--muted); font-size: 1.15rem; }
 .map-card header strong { color: var(--brand-dark); font-size: 1.15rem; text-align: right; }
 #heatMap { width: 100%; height: 460px; background: #eef2f5; }
-.heat-zone-cell { border: 0; background: transparent; }
-.heat-zone-cell div { width: 100%; height: 100%; box-shadow: 0 0 0 1px rgba(255,255,255,0.22) inset; opacity: 0.68; }
 .map-actions { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
 .icon-btn { border: 1px solid var(--line); background: #fff; color: var(--brand-dark); border-radius: 6px; min-width: 34px; height: 34px; padding: 0 8px; font-size: 1.25rem; line-height: 1; cursor: pointer; }
 .icon-btn:hover { border-color: var(--brand); background: #f2f7fc; }

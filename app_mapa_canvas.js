@@ -207,50 +207,12 @@ function ensureHeatMap() {
 }
 
 function heatColor(value, maxValue) {
-  const ratio = Math.max(0, Math.min(1, Math.sqrt(Number(value || 0) / Math.max(maxValue, 1))));
-  if (ratio < 0.2) return "#2c7bb6";
-  if (ratio < 0.4) return "#74add1";
-  if (ratio < 0.6) return "#ffffbf";
-  if (ratio < 0.8) return "#fdae61";
-  return "#d7191c";
-}
-
-function cellSizeForZoom(map) {
-  const zoom = map.getZoom();
-  if (zoom <= 11) return 28;
-  if (zoom === 12) return 34;
-  if (zoom === 13) return 42;
-  if (zoom === 14) return 52;
-  return 64;
-}
-
-function createHeatZoneMarker(row, maxValue, size) {
-  const total = Number(row.total || 0);
-  const color = heatColor(total, maxValue);
-  const icon = L.divIcon({
-    className: "heat-zone-cell",
-    html: `<div style="background:${color}" title="${formatNumber(total)} personas"></div>`,
-    iconSize: [size, size],
-    iconAnchor: [size / 2, size / 2],
-  });
-  return L.marker([Number(row.lat), Number(row.lon)], {
-    icon,
-    interactive: false,
-    keyboard: false,
-  });
-}
-
-function redrawHeatZones() {
-  if (!heatMap || !heatLayer || !lastMapRows.length) return;
-  const validRows = lastMapRows.filter(row => Number.isFinite(Number(row.lat)) && Number.isFinite(Number(row.lon)) && Number(row.total) > 0);
-  const maxValue = Math.max(...validRows.map(row => Number(row.total)), 1);
-  const size = cellSizeForZoom(heatMap);
-  heatLayer.clearLayers();
-  validRows.forEach(row => heatLayer.addLayer(createHeatZoneMarker(row, maxValue, size)));
+  const ratio = Math.max(0, Math.min(1, Number(value || 0) / Math.max(maxValue, 1)));
+  return Math.sqrt(ratio);
 }
 
 function renderHeatMap(rows, totalSelected) {
-  if (!window.L) {
+  if (!window.L || typeof L.heatLayer !== "function") {
     mapCoverageEl.textContent = "No se pudo cargar Leaflet";
     return;
   }
@@ -259,10 +221,25 @@ function renderHeatMap(rows, totalSelected) {
   if (heatLayer) heatLayer.remove();
   const validRows = rows.filter(row => Number.isFinite(Number(row.lat)) && Number.isFinite(Number(row.lon)) && Number(row.total) > 0);
   const maxValue = Math.max(...validRows.map(row => Number(row.total)), 1);
-  const size = cellSizeForZoom(map);
-  heatLayer = L.layerGroup(validRows.map(row => createHeatZoneMarker(row, maxValue, size))).addTo(map);
-  map.off("zoomend", redrawHeatZones);
-  map.on("zoomend", redrawHeatZones);
+  const points = validRows.map(row => [
+    Number(row.lat),
+    Number(row.lon),
+    heatColor(Number(row.total || 0), maxValue),
+  ]);
+  heatLayer = L.heatLayer(points, {
+    radius: 22,
+    blur: 20,
+    maxZoom: 17,
+    max: 1,
+    minOpacity: 0.32,
+    gradient: {
+      0.15: "#2c7bb6",
+      0.35: "#74add1",
+      0.55: "#ffffbf",
+      0.75: "#fdae61",
+      1: "#d7191c",
+    },
+  }).addTo(map);
   const represented = validRows.reduce((sum, row) => sum + Number(row.total || 0), 0);
   mapCoverageEl.textContent = `${formatNumber(represented)} de ${formatNumber(totalSelected)} filtradas · ${formatNumber(validRows.length)} zonas`;
   requestAnimationFrame(() => map.invalidateSize());
