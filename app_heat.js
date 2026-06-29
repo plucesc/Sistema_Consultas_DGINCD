@@ -120,6 +120,10 @@ function parseDateInput(value) {
 
 function readFilterValue(control, filterName) {
   if (!control) return null;
+  if (multiValueFilters.has(filterName) && control.classList.contains("checkbox-filter")) {
+    const values = Array.from(control.querySelectorAll("input[type='checkbox']:checked")).map(input => input.value).filter(Boolean);
+    return values.length ? values.join("|") : null;
+  }
   if (!multiValueFilters.has(filterName)) return control.value || null;
   const values = Array.from(control.selectedOptions).map(option => option.value).filter(Boolean);
   return values.length ? values.join("|") : null;
@@ -179,18 +183,30 @@ async function rpc(functionName, body = {}) {
 
 async function cargarFiltros() {
   const rows = await rpc("consultar_filtros_rango_etario");
-  Object.values(filterControls).forEach(select => {
-    const first = select.querySelector("option");
-    select.innerHTML = "";
-    select.appendChild(first || new Option("Todas", ""));
+  Object.entries(filterControls).forEach(([filterName, control]) => {
+    if (multiValueFilters.has(filterName) && control.classList.contains("checkbox-filter")) {
+      control.innerHTML = `<div class="muted">${escapeHtml(control.dataset.emptyLabel || "Todas")}</div>`;
+      return;
+    }
+    const first = control.querySelector("option");
+    control.innerHTML = "";
+    control.appendChild(first || new Option("Todas", ""));
   });
   for (const row of rows) {
-    const select = filterControls[row.filtro];
-    if (!select) continue;
+    const control = filterControls[row.filtro];
+    if (!control) continue;
+    if (multiValueFilters.has(row.filtro) && control.classList.contains("checkbox-filter")) {
+      if (control.querySelector(".muted")) control.innerHTML = "";
+      const id = `${control.id}_${control.children.length}`;
+      const label = document.createElement("label");
+      label.innerHTML = `<input type="checkbox" id="${id}" value="${escapeHtml(row.valor)}"><span>${escapeHtml(row.valor)}</span>`;
+      control.appendChild(label);
+      continue;
+    }
     const option = document.createElement("option");
     option.value = row.valor;
     option.textContent = row.valor;
-    select.appendChild(option);
+    control.appendChild(option);
   }
 }
 
@@ -223,11 +239,11 @@ function heatStyleForZoom(map) {
   const zoom = map.getZoom();
   const cabaLatitude = -34.61;
   const metersPerPixel = 156543.03392 * Math.cos((cabaLatitude * Math.PI) / 180) / Math.pow(2, zoom);
-  const targetMeters = 520;
-  const radius = Math.max(28, Math.min(120, Math.round(targetMeters / metersPerPixel)));
+  const targetMeters = 190;
+  const radius = Math.max(18, Math.min(46, Math.round(targetMeters / metersPerPixel)));
   return {
     radius,
-    blur: Math.round(radius * 0.55),
+    blur: Math.round(radius * 1.35),
   };
 }
 
@@ -271,14 +287,14 @@ function renderHeatMap(rows, totalSelected) {
   heatLayer = L.heatLayer(points, {
     radius: heatStyle.radius,
     blur: heatStyle.blur,
-    maxZoom: 9,
-    max: 1.25,
-    minOpacity: 0.30,
+    maxZoom: 12,
+    max: 1.35,
+    minOpacity: 0.20,
     gradient: {
-      0.16: "#2c7bb6",
-      0.36: "#74add1",
-      0.58: "#ffffbf",
-      0.80: "#fdae61",
+      0.20: "#2c7bb6",
+      0.42: "#74add1",
+      0.64: "#ffffbf",
+      0.84: "#fdae61",
       1: "#d95f3f",
     },
   }).addTo(map);
@@ -311,8 +327,11 @@ function limpiarFiltros() {
   document.getElementById("edadDesde").value = "0";
   document.getElementById("edadHasta").value = "200";
   Object.entries(filterControls).forEach(([filterName, control]) => {
-    if (multiValueFilters.has(filterName)) Array.from(control.options).forEach(option => { option.selected = false; });
-    control.value = "";
+    if (multiValueFilters.has(filterName) && control.classList.contains("checkbox-filter")) {
+      control.querySelectorAll("input[type='checkbox']").forEach(input => { input.checked = false; });
+    } else {
+      control.value = "";
+    }
   });
   document.querySelectorAll(".filter-group[open]").forEach(group => { group.open = false; });
   consultar();

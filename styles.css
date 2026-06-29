@@ -36,6 +36,9 @@ label { display: grid; gap: 4px; color: var(--muted); font-size: 1.15rem; font-w
 input, select { width: 100%; border: 1px solid var(--line); border-radius: 6px; padding: 7px 8px; font: inherit; color: var(--text); background: white; min-width: 0; }
 select[multiple] { min-height: 112px; padding: 5px; }
 select[multiple] option { padding: 4px 6px; }
+.checkbox-filter { display: grid; gap: 5px; max-height: 150px; overflow: auto; padding: 5px; border: 1px solid var(--line); border-radius: 6px; background: white; }
+.checkbox-filter label { display: grid; grid-template-columns: 16px minmax(0, 1fr); align-items: start; gap: 6px; color: var(--text); font-size: 1.12rem; font-weight: 500; line-height: 1.2; }
+.checkbox-filter input { width: 14px; min-width: 14px; margin-top: 1px; padding: 0; }
 .filter-group { border: 1px solid var(--line); border-radius: 7px; background: #fbfdff; }
 .filter-group summary { padding: 8px; cursor: pointer; font-weight: 800; font-size: 1.2rem; }
 .filter-group[open] { display: grid; gap: 7px; padding: 0 8px 8px; }

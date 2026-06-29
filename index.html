@@ -47,13 +47,13 @@
         <h2>Filtros</h2>
         <fieldset><legend>Fecha</legend><div class="inline-fields"><label>Desde<input id="fechaDesde" type="date" lang="es-AR" value="" /></label><label>Hasta<input id="fechaHasta" type="date" lang="es-AR" value="" /></label></div></fieldset>
         <fieldset><legend>Edad</legend><div class="inline-fields"><label>Desde<input id="edadDesde" type="number" min="0" max="200" value="0" /></label><label>Hasta<input id="edadHasta" type="number" min="0" max="200" value="200" /></label></div></fieldset>
-        <fieldset><legend>Discapacidad</legend><label>Junta discapacidad<select id="juntaDiscapacidad" multiple size="5"><option value="">Todas</option></select></label></fieldset>
+        <fieldset><legend>Discapacidad</legend><div class="checkbox-filter" id="juntaDiscapacidad" data-empty-label="Todas"></div></fieldset>
         <fieldset><legend>Sexo</legend><label>Sexo<select id="sexo"><option value="">Todos</option></select></label></fieldset>
         <fieldset><legend>Estado CUD</legend><label>Estado<select id="estadoCud"><option value="">Todos</option></select></label></fieldset>
         <fieldset><legend>Orientación Prestacional</legend><label>Orientación<select id="orientacionPrestacional"><option value="">Todas</option></select></label></fieldset>
         <fieldset><legend>Equipamiento</legend><label>Equipamiento<select id="equipamiento"><option value="">Todos</option></select></label></fieldset>
-        <fieldset><legend>Condición de Actividad</legend><label>Condición<select id="condicionActividad" multiple size="5"><option value="">Todas</option></select></label></fieldset>
-        <fieldset><legend>Situación Previsional</legend><label>Situación<select id="situacionPrevisional" multiple size="5"><option value="">Todas</option></select></label></fieldset>
+        <fieldset><legend>Condición de Actividad</legend><div class="checkbox-filter" id="condicionActividad" data-empty-label="Todas"></div></fieldset>
+        <fieldset><legend>Situación Previsional</legend><div class="checkbox-filter" id="situacionPrevisional" data-empty-label="Todas"></div></fieldset>
         <fieldset><legend>Ley de Acompañante</legend><label>Ley<select id="leyAcompanante"><option value="">Todas</option></select></label></fieldset>
         <details class="filter-group">
           <summary>Vivienda</summary>
@@ -81,7 +81,7 @@
   <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
   <script src="config.js"></script>
-  <script src="app_heat.js?v=20260629-heat-multiselect-1"></script>
+  <script src="app_heat.js?v=20260629-checkbox-heat-1"></script>
 </body>
 </html>
 
