@@ -211,6 +211,25 @@ function heatColor(value, maxValue) {
   return Math.sqrt(ratio);
 }
 
+function heatStyleForZoom(map) {
+  const zoom = map.getZoom();
+  const cabaLatitude = -34.61;
+  const metersPerPixel = 156543.03392 * Math.cos((cabaLatitude * Math.PI) / 180) / Math.pow(2, zoom);
+  const targetMeters = 1050;
+  const radius = Math.max(34, Math.min(210, Math.round(targetMeters / metersPerPixel)));
+  return {
+    radius,
+    blur: Math.round(radius * 0.82),
+  };
+}
+
+function updateClassicHeatStyle() {
+  if (!heatMap || !heatLayer?.setOptions) return;
+  const style = heatStyleForZoom(heatMap);
+  heatLayer.setOptions(style);
+  heatLayer.redraw();
+}
+
 function renderHeatMap(rows, totalSelected) {
   if (!window.L || typeof L.heatLayer !== "function") {
     mapCoverageEl.textContent = "No se pudo cargar Leaflet";
@@ -226,20 +245,23 @@ function renderHeatMap(rows, totalSelected) {
     Number(row.lon),
     heatColor(Number(row.total || 0), maxValue),
   ]);
+  const heatStyle = heatStyleForZoom(map);
   heatLayer = L.heatLayer(points, {
-    radius: 22,
-    blur: 20,
-    maxZoom: 17,
+    radius: heatStyle.radius,
+    blur: heatStyle.blur,
+    maxZoom: 11,
     max: 1,
-    minOpacity: 0.32,
+    minOpacity: 0.42,
     gradient: {
-      0.15: "#2c7bb6",
-      0.35: "#74add1",
-      0.55: "#ffffbf",
-      0.75: "#fdae61",
+      0.12: "#2c7bb6",
+      0.32: "#74add1",
+      0.52: "#ffffbf",
+      0.74: "#fdae61",
       1: "#d7191c",
     },
   }).addTo(map);
+  map.off("zoomend", updateClassicHeatStyle);
+  map.on("zoomend", updateClassicHeatStyle);
   const represented = validRows.reduce((sum, row) => sum + Number(row.total || 0), 0);
   mapCoverageEl.textContent = `${formatNumber(represented)} de ${formatNumber(totalSelected)} filtradas · ${formatNumber(validRows.length)} zonas`;
   requestAnimationFrame(() => map.invalidateSize());
