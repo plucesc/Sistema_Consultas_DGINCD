@@ -208,18 +208,18 @@ function ensureHeatMap() {
 
 function heatColor(value, maxValue) {
   const ratio = Math.max(0, Math.min(1, Number(value || 0) / Math.max(maxValue, 1)));
-  return 0.12 + Math.pow(ratio, 0.7) * 0.58;
+  return 0.28 + Math.pow(ratio, 0.55) * 0.72;
 }
 
 function heatStyleForZoom(map) {
   const zoom = map.getZoom();
   const cabaLatitude = -34.61;
   const metersPerPixel = 156543.03392 * Math.cos((cabaLatitude * Math.PI) / 180) / Math.pow(2, zoom);
-  const targetMeters = 320;
-  const radius = Math.max(20, Math.min(82, Math.round(targetMeters / metersPerPixel)));
+  const targetMeters = 520;
+  const radius = Math.max(28, Math.min(120, Math.round(targetMeters / metersPerPixel)));
   return {
     radius,
-    blur: Math.round(radius * 0.62),
+    blur: Math.round(radius * 0.55),
   };
 }
 
@@ -227,6 +227,9 @@ function updateClassicHeatStyle() {
   if (!heatMap || !heatLayer?.setOptions) return;
   const style = heatStyleForZoom(heatMap);
   heatLayer.setOptions(style);
+  if (heatLayer._heat?.radius) {
+    heatLayer._heat.radius(style.radius, style.blur);
+  }
   heatLayer.redraw();
 }
 
@@ -249,9 +252,9 @@ function renderHeatMap(rows, totalSelected) {
   heatLayer = L.heatLayer(points, {
     radius: heatStyle.radius,
     blur: heatStyle.blur,
-    maxZoom: 15,
-    max: 1.45,
-    minOpacity: 0.24,
+    maxZoom: 9,
+    max: 1,
+    minOpacity: 0.38,
     gradient: {
       0.18: "#2c7bb6",
       0.38: "#74add1",
@@ -260,6 +263,9 @@ function renderHeatMap(rows, totalSelected) {
       1: "#d7191c",
     },
   }).addTo(map);
+  if (heatLayer._heat?.radius) {
+    heatLayer._heat.radius(heatStyle.radius, heatStyle.blur);
+  }
   map.off("zoomend", updateClassicHeatStyle);
   map.on("zoomend", updateClassicHeatStyle);
   const represented = validRows.reduce((sum, row) => sum + Number(row.total || 0), 0);
