@@ -26,6 +26,10 @@ let heatMap = null;
 let heatLayer = null;
 let authSession = JSON.parse(localStorage.getItem("sistemaConsultasSession") || "null");
 
+const cabaBounds = [
+  [-34.705, -58.535],
+  [-34.525, -58.335],
+];
 const donutGroups = new Set(["Sexo", "Ley de Acompañante", "Orientación Prestacional", "Equipamiento", "Vivienda Adaptada", "Vivienda Particular o Colectiva"]);
 const chartColors = ["#1464a5", "#2f7fbd", "#64a2d7", "#9bc5e5", "#0f4d7d", "#72b7b2", "#f2c14e", "#e07a5f", "#6c757d"];
 
@@ -230,6 +234,16 @@ function ensureHeatMap() {
   return heatMap;
 }
 
+function focusHeatMapOnCaba(animate = false) {
+  if (!heatMap) return;
+  heatMap.fitBounds(cabaBounds, {
+    animate,
+    paddingTopLeft: [18, 18],
+    paddingBottomRight: [18, 18],
+    maxZoom: 12,
+  });
+}
+
 function heatColor(value, maxValue) {
   const ratio = Math.max(0, Math.min(1, Number(value || 0) / Math.max(maxValue, 1)));
   return 0.22 + Math.pow(ratio, 0.62) * 0.55;
@@ -300,7 +314,7 @@ function renderHeatMap(rows, totalSelected) {
   }).addTo(map);
   if (heatLayer._canvas) {
     heatLayer._canvas.classList.add("leaflet-heatmap-layer");
-    heatLayer._canvas.style.opacity = "0.68";
+    heatLayer._canvas.style.opacity = document.fullscreenElement === mapCard ? "0.78" : "0.70";
   }
   if (heatLayer._heat?.radius) {
     heatLayer._heat.radius(heatStyle.radius, heatStyle.blur);
@@ -309,7 +323,10 @@ function renderHeatMap(rows, totalSelected) {
   map.on("zoomend", updateClassicHeatStyle);
   const represented = validRows.reduce((sum, row) => sum + Number(row.total || 0), 0);
   mapCoverageEl.textContent = `${formatNumber(represented)} de ${formatNumber(totalSelected)} filtradas · ${formatNumber(validRows.length)} bloques`;
-  requestAnimationFrame(() => map.invalidateSize());
+  requestAnimationFrame(() => {
+    map.invalidateSize();
+    if (document.fullscreenElement === mapCard) focusHeatMapOnCaba(false);
+  });
 }
 
 async function toggleMapFullscreen() {
@@ -483,6 +500,9 @@ document.addEventListener("fullscreenchange", () => {
   }
   requestAnimationFrame(() => {
     heatMap?.invalidateSize();
+    if (expanded) focusHeatMapOnCaba(false);
+    updateClassicHeatStyle();
+    if (heatLayer?._canvas) heatLayer._canvas.style.opacity = expanded ? "0.78" : "0.70";
   });
 });
 

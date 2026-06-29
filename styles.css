@@ -79,6 +79,10 @@ select[multiple] option { padding: 4px 6px; }
 .icon-btn { border: 1px solid var(--line); background: #fff; color: var(--brand-dark); border-radius: 6px; min-width: 34px; height: 34px; padding: 0 8px; font-size: 1.25rem; line-height: 1; cursor: pointer; }
 .icon-btn:hover { border-color: var(--brand); background: #f2f7fc; }
 .map-card:fullscreen { width: 100vw; height: 100vh; display: flex; flex-direction: column; border-radius: 0; border: 0; }
+.map-card:fullscreen header { padding: 8px 12px; min-height: 48px; }
+.map-card:fullscreen h2 { font-size: 1.45rem; }
+.map-card:fullscreen p { font-size: 1rem; }
+.map-card:fullscreen header strong { font-size: 1rem; }
 .map-card:fullscreen #heatMap { flex: 1; height: auto; }
 .chart-card { min-width: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
 .chart-card header { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 12px 14px; border-bottom: 1px solid var(--line); }
