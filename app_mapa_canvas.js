@@ -253,6 +253,8 @@ function createHeatRasterLayer(rows) {
       this._canvas.style.pointerEvents = "none";
       this._canvas.style.opacity = "0.74";
       this._ctx = this._canvas.getContext("2d");
+      this._buffer = document.createElement("canvas");
+      this._bufferCtx = this._buffer.getContext("2d");
       map.getPanes().overlayPane.appendChild(this._canvas);
       map.on("moveend zoomend resize", this._reset, this);
       this._reset();
@@ -273,31 +275,50 @@ function createHeatRasterLayer(rows) {
       const ctx = this._ctx;
       const width = this._canvas.width;
       const height = this._canvas.height;
-      const step = 6;
+      const scale = 4;
+      const bufferWidth = Math.max(1, Math.ceil(width / scale));
+      const bufferHeight = Math.max(1, Math.ceil(height / scale));
       const zoom = this._map.getZoom();
       const radius = Math.max(42, Math.min(130, 72 + (zoom - 11) * 5));
+      const radiusScaled = radius / scale;
+      const radiusSq = radiusScaled * radiusScaled;
       const projected = this._points.map(point => {
         const layerPoint = this._map.latLngToContainerPoint([point.lat, point.lon]);
-        return { x: layerPoint.x, y: layerPoint.y, total: point.total };
-      });
+        return { x: layerPoint.x / scale, y: layerPoint.y / scale, total: point.total };
+      }).filter(point => (
+        point.x >= -radiusScaled &&
+        point.y >= -radiusScaled &&
+        point.x <= bufferWidth + radiusScaled &&
+        point.y <= bufferHeight + radiusScaled
+      ));
+      this._buffer.width = bufferWidth;
+      this._buffer.height = bufferHeight;
+      const image = this._bufferCtx.createImageData(bufferWidth, bufferHeight);
       ctx.clearRect(0, 0, width, height);
-      for (let y = 0; y < height; y += step) {
-        for (let x = 0; x < width; x += step) {
+      for (let y = 0; y < bufferHeight; y += 1) {
+        for (let x = 0; x < bufferWidth; x += 1) {
           let value = 0;
           for (const point of projected) {
             const dx = x - point.x;
             const dy = y - point.y;
             const distSq = dx * dx + dy * dy;
-            if (distSq > radius * radius) continue;
-            const weight = 1 - distSq / (radius * radius);
+            if (distSq > radiusSq) continue;
+            const weight = 1 - distSq / radiusSq;
             value += point.total * weight * weight;
           }
           if (value <= 0) continue;
           const [r, g, b] = interpolateColor(value, 900);
-          ctx.fillStyle = `rgba(${r}, ${g}, ${b}, 0.58)`;
-          ctx.fillRect(x, y, step + 1, step + 1);
+          const offset = (y * bufferWidth + x) * 4;
+          image.data[offset] = r;
+          image.data[offset + 1] = g;
+          image.data[offset + 2] = b;
+          image.data[offset + 3] = 150;
         }
       }
+      this._bufferCtx.putImageData(image, 0, 0);
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = "high";
+      ctx.drawImage(this._buffer, 0, 0, width, height);
     },
   });
 }
