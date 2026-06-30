@@ -246,19 +246,27 @@ function focusHeatMapOnCaba(animate = false) {
 
 function heatColor(value, maxValue) {
   const ratio = Math.max(0, Math.min(1, Number(value || 0) / Math.max(maxValue, 1)));
-  return 0.22 + Math.pow(ratio, 0.62) * 0.55;
+  return 0.35 + Math.pow(ratio, 0.55) * 0.65;
 }
 
 function heatStyleForZoom(map) {
   const zoom = map.getZoom();
-  const cabaLatitude = -34.61;
-  const metersPerPixel = 156543.03392 * Math.cos((cabaLatitude * Math.PI) / 180) / Math.pow(2, zoom);
-  const targetMeters = 130;
-  const radius = Math.max(16, Math.min(34, Math.round(targetMeters / metersPerPixel)));
+  let radius = 30;
+  if (zoom <= 11) radius = 54;
+  else if (zoom <= 12) radius = 46;
+  else if (zoom <= 13) radius = 36;
+  else if (zoom <= 14) radius = 28;
+  else radius = 22;
   return {
     radius,
-    blur: Math.round(radius * 1.15),
+    blur: Math.round(radius * 0.95),
   };
+}
+
+function heatOpacityForZoom(map) {
+  const zoom = map?.getZoom?.() || 12;
+  if (document.fullscreenElement === mapCard) return zoom <= 12 ? "0.88" : "0.76";
+  return zoom <= 12 ? "0.80" : "0.70";
 }
 
 function updateClassicHeatStyle() {
@@ -267,6 +275,9 @@ function updateClassicHeatStyle() {
   heatLayer.setOptions(style);
   if (heatLayer._heat?.radius) {
     heatLayer._heat.radius(style.radius, style.blur);
+  }
+  if (heatLayer._canvas) {
+    heatLayer._canvas.style.opacity = heatOpacityForZoom(heatMap);
   }
   heatLayer.redraw();
 }
@@ -302,8 +313,8 @@ function renderHeatMap(rows, totalSelected) {
     radius: heatStyle.radius,
     blur: heatStyle.blur,
     maxZoom: 12,
-    max: 1.35,
-    minOpacity: 0.20,
+    max: 1.05,
+    minOpacity: 0.30,
     gradient: {
       0.20: "#2c7bb6",
       0.42: "#74add1",
@@ -314,7 +325,7 @@ function renderHeatMap(rows, totalSelected) {
   }).addTo(map);
   if (heatLayer._canvas) {
     heatLayer._canvas.classList.add("leaflet-heatmap-layer");
-    heatLayer._canvas.style.opacity = document.fullscreenElement === mapCard ? "0.78" : "0.70";
+    heatLayer._canvas.style.opacity = heatOpacityForZoom(map);
   }
   if (heatLayer._heat?.radius) {
     heatLayer._heat.radius(heatStyle.radius, heatStyle.blur);
@@ -502,7 +513,7 @@ document.addEventListener("fullscreenchange", () => {
     heatMap?.invalidateSize();
     if (expanded) focusHeatMapOnCaba(false);
     updateClassicHeatStyle();
-    if (heatLayer?._canvas) heatLayer._canvas.style.opacity = expanded ? "0.78" : "0.70";
+    if (heatLayer?._canvas) heatLayer._canvas.style.opacity = heatOpacityForZoom(heatMap);
   });
 });
 
