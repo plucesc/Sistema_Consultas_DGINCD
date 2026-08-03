@@ -472,7 +472,6 @@ function removeLegacyHeatArtifacts() {
   if (!heatMapEl) return;
   heatMapEl.querySelectorAll(".heat-zone-cell, .leaflet-marker-icon.heat-zone-cell, .leaflet-marker-pane .heat-zone-cell").forEach(node => node.remove());
   heatMapEl.querySelectorAll(".leaflet-marker-pane .leaflet-marker-icon, .leaflet-marker-pane .leaflet-marker-shadow").forEach(node => node.remove());
-  heatMapEl.querySelectorAll(".leaflet-overlay-pane svg, .leaflet-overlay-pane path").forEach(node => node.remove());
   heatMapEl.querySelectorAll(".leaflet-overlay-pane canvas").forEach(node => {
     if (!node.classList.contains("leaflet-heatmap-layer")) node.remove();
   });
@@ -634,7 +633,7 @@ async function consultar() {
   const queryId = ++activeQueryId;
   consultarBtn.disabled = true;
   limpiarFiltrosBtn.disabled = true;
-  statusEl.textContent = "Consultando Supabase...";
+  statusEl.textContent = "Filtrando datos...";
   try {
     const filters = readFilters();
     let kpis = [];
@@ -652,7 +651,7 @@ async function consultar() {
     renderKpis(kpis, rows, discapacidadMensual); renderResults(rows);
     consultarBtn.disabled = false;
     limpiarFiltrosBtn.disabled = false;
-    statusEl.textContent = "Indicadores listos. Actualizando mapa...";
+    statusEl.textContent = "Indicadores listos. Filtrando mapa territorial...";
     try {
       geoSummaryRows = await rpc("consultar_geografia_resumen", filters);
       if (queryId !== activeQueryId) return;
