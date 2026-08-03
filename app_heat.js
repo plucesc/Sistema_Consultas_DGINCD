@@ -39,7 +39,7 @@ const cabaBounds = [
   [-34.705, -58.535],
   [-34.525, -58.335],
 ];
-const donutGroups = new Set(["Sexo", "Ley de Acompañante", "Orientación Prestacional", "Equipamiento", "Vivienda Adaptada", "Vivienda Particular o Colectiva"]);
+const donutGroups = new Set(["Estado CUD", "Sexo", "Ley de Acompañante", "Orientación Prestacional", "Equipamiento", "Vivienda Adaptada", "Vivienda Particular o Colectiva"]);
 const chartColors = ["#1464a5", "#2f7fbd", "#64a2d7", "#9bc5e5", "#0f4d7d", "#72b7b2", "#f2c14e", "#e07a5f", "#6c757d"];
 
 const filterControls = {
@@ -75,7 +75,22 @@ const groupLabels = {
   "Tipo de vivienda estandarizada": "Tipo de Vivienda Estandarizada",
 };
 
-const groupOrder = ["Sexo", "Condición de Actividad", "Orientación Prestacional", "Tipo de Orientación Prestacional", "Equipamiento", "Tipo de Equipamiento", "Situación Previsional", "Ley de Acompañante", "Alfabetización", "Vivienda Adaptada", "Vivienda Particular o Colectiva", "Tipo de Convivencia", "Tipo de Vivienda Estandarizada"];
+const groupOrder = [
+  "Estado CUD",
+  "Sexo",
+  "Situación Previsional",
+  "Alfabetización",
+  "Condición de Actividad",
+  "Ley de Acompañante",
+  "Orientación Prestacional",
+  "Tipo de Orientación Prestacional",
+  "Equipamiento",
+  "Tipo de Equipamiento",
+  "Vivienda Particular o Colectiva",
+  "Tipo de Vivienda Estandarizada",
+  "Vivienda Adaptada",
+  "Tipo de Convivencia",
+];
 const multiValueFilters = new Set(["condicion_actividad", "situacion_previsional", "junta_discapacidad"]);
 
 function getConfig() {
@@ -553,6 +568,9 @@ async function toggleMapFullscreen() {
 }
 
 function limpiarFiltros() {
+  statusEl.textContent = "Limpiando filtros...";
+  consultarBtn.disabled = true;
+  limpiarFiltrosBtn.disabled = true;
   document.getElementById("fechaDesde").value = "";
   document.getElementById("fechaHasta").value = "";
   document.getElementById("edadDesde").value = "0";
@@ -566,7 +584,7 @@ function limpiarFiltros() {
   });
   cargarOpcionesGeograficas();
   document.querySelectorAll(".filter-group[open]").forEach(group => { group.open = false; });
-  consultar();
+  consultar("Limpiando filtros y actualizando datos...");
 }
 
 
@@ -653,11 +671,11 @@ function downloadBlob(filename, content, type) {
 function descargarTablas() { if (lastRows.length) downloadBlob("reporte_sistema_consultas_tablas.xls", buildReportTablesHtml(), "application/vnd.ms-excel;charset=utf-8"); }
 function descargarGraficos() { if (lastRows.length) downloadBlob("reporte_sistema_consultas_graficos.html", `<!doctype html><html lang="es-AR"><head><meta charset="utf-8"><title>Gráficos Sistema de Consultas</title><link rel="stylesheet" href="${new URL("styles.css", window.location.href).href}"></head><body><main class="shell"><h1>Sistema de Consultas DGINCD</h1>${kpisEl.outerHTML}${resultsEl.outerHTML}</main></body></html>`, "text/html;charset=utf-8"); }
 
-async function consultar() {
+async function consultar(statusMessage = "Filtrando datos...") {
   const queryId = ++activeQueryId;
   consultarBtn.disabled = true;
   limpiarFiltrosBtn.disabled = true;
-  statusEl.textContent = "Filtrando datos...";
+  statusEl.textContent = statusMessage;
   try {
     const filters = readFilters();
     let kpis = [];

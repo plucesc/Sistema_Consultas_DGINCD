@@ -57,7 +57,7 @@ select[multiple] option { padding: 4px 6px; }
 .gauge-readout strong { font-size: 2.8rem; line-height: 1.1; }
 .gauge-readout em { color: var(--muted); font-style: normal; font-size: 1.15rem; }
 
-.results { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.results { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 14px; }
 .geo-section { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 14px; margin-top: 14px; align-items: stretch; min-height: 690px; }
 .map-card, .geo-table-card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
 .map-card { display: grid; grid-template-rows: auto minmax(0, 1fr); }
