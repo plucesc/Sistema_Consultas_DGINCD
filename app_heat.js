@@ -342,12 +342,12 @@ function territoryChoroplethColor(value, minValue, maxValue) {
   const min = Number(minValue || 0);
   const max = Number(maxValue || 0);
   const ratio = max > min ? Math.max(0, Math.min(1, (Number(value || 0) - min) / (max - min))) : 1;
-  if (ratio >= 0.82) return "#e66101";
-  if (ratio >= 0.64) return "#fdae61";
-  if (ratio >= 0.46) return "#fee08b";
-  if (ratio >= 0.28) return "#d9ef8b";
-  if (ratio >= 0.12) return "#91bfdb";
-  return "#4575b4";
+  if (ratio >= 0.86) return "#d7191c";
+  if (ratio >= 0.70) return "#fdae21";
+  if (ratio >= 0.54) return "#fff12b";
+  if (ratio >= 0.38) return "#3ee35f";
+  if (ratio >= 0.20) return "#24c6f0";
+  return "#1f5fd1";
 }
 
 function buildTerritoryTotals(summaryRows, mode) {
@@ -398,8 +398,8 @@ function drawTerritoryChoropleth(summaryRows, filters) {
 
   const totals = buildTerritoryTotals(summaryRows, mode);
   const positiveTotals = Array.from(totals.values()).filter(value => value > 0);
-  const minValue = Math.min(...positiveTotals, 0);
-  const maxValue = Math.max(...positiveTotals, 1);
+  const minValue = positiveTotals.length ? Math.min(...positiveTotals) : 0;
+  const maxValue = positiveTotals.length ? Math.max(...positiveTotals) : 1;
   choroplethLayer = L.geoJSON(source, {
     style: feature => {
       const name = territoryFeatureName(feature, mode);
@@ -511,9 +511,10 @@ function renderGeoSummary(rows) {
   if (!geoSummaryEl) return;
   const mode = geoTableModeEl?.value || "comuna";
   const label = mode === "barrio" ? "Barrio" : "Comuna";
-  const filtered = rows.filter(row => row.nivel === label);
-  const total = filtered.reduce((sum, row) => sum + Number(row.total || 0), 0);
-  if (!filtered.length) {
+  const allFiltered = rows.filter(row => row.nivel === label);
+  const filtered = mode === "barrio" ? allFiltered.slice(0, 15) : allFiltered;
+  const total = allFiltered.reduce((sum, row) => sum + Number(row.total || 0), 0);
+  if (!allFiltered.length) {
     geoSummaryEl.className = "geo-summary empty";
     geoSummaryEl.innerHTML = `No hay ${label.toLowerCase()}s para los filtros seleccionados.`;
     return;
