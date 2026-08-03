@@ -78,18 +78,18 @@ const groupLabels = {
 const groupOrder = [
   "Estado CUD",
   "Sexo",
-  "Situación Previsional",
-  "Alfabetización",
-  "Condición de Actividad",
-  "Ley de Acompañante",
   "Orientación Prestacional",
   "Tipo de Orientación Prestacional",
   "Equipamiento",
   "Tipo de Equipamiento",
+  "Condición de Actividad",
+  "Situación Previsional",
   "Vivienda Particular o Colectiva",
   "Tipo de Vivienda Estandarizada",
   "Vivienda Adaptada",
   "Tipo de Convivencia",
+  "Alfabetización",
+  "Ley de Acompañante",
 ];
 const multiValueFilters = new Set(["condicion_actividad", "situacion_previsional", "junta_discapacidad"]);
 
