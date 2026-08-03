@@ -183,8 +183,17 @@ function normalizeGeoName(value) {
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
+    .replace(/\bgral\b/g, "general")
+    .replace(/\bpte\b/g, "presidente")
     .replace(/[^a-z0-9]+/g, " ")
     .trim();
+}
+
+function normalizeGeoLevel(value) {
+  const normalized = normalizeGeoName(value);
+  if (normalized.includes("barrio")) return "barrio";
+  if (normalized.includes("comuna")) return "comuna";
+  return normalized;
 }
 
 function groupRows(rows) {
@@ -333,8 +342,11 @@ function findBoundaryFeature(filters) {
 }
 
 function territoryFeatureName(feature, mode) {
-  if (mode === "barrio") return feature.properties?.nombre || "";
-  return `Comuna ${feature.properties?.comuna || ""}`;
+  const props = feature.properties || {};
+  if (mode === "barrio") {
+    return props.nombre || props.barrio || props.BARRIO || props.NOMBRE || props.name || "";
+  }
+  return `Comuna ${props.comuna || props.COMUNA || props.id || ""}`;
 }
 
 function territoryChoroplethColor(value, minValue, maxValue) {
@@ -342,19 +354,22 @@ function territoryChoroplethColor(value, minValue, maxValue) {
   const min = Number(minValue || 0);
   const max = Number(maxValue || 0);
   const ratio = max > min ? Math.max(0, Math.min(1, (Number(value || 0) - min) / (max - min))) : 1;
-  if (ratio >= 0.86) return "#d7191c";
-  if (ratio >= 0.70) return "#fdae21";
-  if (ratio >= 0.54) return "#fff12b";
-  if (ratio >= 0.38) return "#3ee35f";
-  if (ratio >= 0.20) return "#24c6f0";
-  return "#1f5fd1";
+  if (ratio >= 0.86) return "#084081";
+  if (ratio >= 0.70) return "#0868ac";
+  if (ratio >= 0.54) return "#2b8cbe";
+  if (ratio >= 0.38) return "#4eb3d3";
+  if (ratio >= 0.20) return "#7bccc4";
+  return "#ccebc5";
 }
 
 function buildTerritoryTotals(summaryRows, mode) {
-  const level = mode === "barrio" ? "Barrio" : "Comuna";
+  const level = mode === "barrio" ? "barrio" : "comuna";
   const totals = new Map();
-  (summaryRows || []).filter(row => row.nivel === level).forEach(row => {
-    totals.set(normalizeGeoName(row.categoria), Number(row.total || 0));
+  (summaryRows || []).filter(row => normalizeGeoLevel(row.nivel) === level).forEach(row => {
+    const total = Number(row.total || 0);
+    const key = normalizeGeoName(row.categoria);
+    totals.set(key, total);
+    totals.set(key.replace(/^barrio\s+/, ""), total);
   });
   return totals;
 }
@@ -406,11 +421,11 @@ function drawTerritoryChoropleth(summaryRows, filters) {
       const total = totals.get(normalizeGeoName(name)) || 0;
       const isActive = total > 0;
       return {
-        color: isActive ? "#074a7a" : "#8aa7bd",
-        weight: isActive ? 1.6 : 0.8,
-        opacity: isActive ? 0.95 : 0.35,
+        color: isActive ? "#08306b" : "#8aa7bd",
+        weight: isActive ? 1.45 : 0.8,
+        opacity: isActive ? 0.88 : 0.35,
         fillColor: territoryChoroplethColor(total, minValue, maxValue),
-        fillOpacity: isActive ? 0.48 : 0.04,
+        fillOpacity: isActive ? 0.54 : 0.04,
       };
     },
     onEachFeature: (feature, layer) => {
@@ -511,7 +526,7 @@ function renderGeoSummary(rows) {
   if (!geoSummaryEl) return;
   const mode = geoTableModeEl?.value || "comuna";
   const label = mode === "barrio" ? "Barrio" : "Comuna";
-  const allFiltered = rows.filter(row => row.nivel === label);
+  const allFiltered = rows.filter(row => normalizeGeoLevel(row.nivel) === normalizeGeoLevel(label));
   const filtered = mode === "barrio" ? allFiltered.slice(0, 15) : allFiltered;
   const total = allFiltered.reduce((sum, row) => sum + Number(row.total || 0), 0);
   if (!allFiltered.length) {
