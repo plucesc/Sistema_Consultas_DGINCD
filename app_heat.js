@@ -17,14 +17,19 @@ const mapCoverageEl = document.getElementById("mapCoverage");
 const heatMapEl = document.getElementById("heatMap");
 const mapCard = document.getElementById("mapCard");
 const toggleMapFullscreenBtn = document.getElementById("toggleMapFullscreen");
+const geoTableModeEl = document.getElementById("geoTableMode");
+const geoSummaryEl = document.getElementById("geoSummary");
 
 let lastKpis = null;
 let lastRows = [];
 let lastDiscapacidadMensual = [];
 let lastMapRows = [];
+let lastGeoSummaryRows = [];
+let geoFilterRows = [];
 let heatMap = null;
 let heatLayer = null;
 let authSession = JSON.parse(localStorage.getItem("sistemaConsultasSession") || "null");
+let activeQueryId = 0;
 
 const cabaBounds = [
   [-34.705, -58.535],
@@ -42,6 +47,8 @@ const filterControls = {
   sexo: document.getElementById("sexo"),
   junta_discapacidad: document.getElementById("juntaDiscapacidad"),
   estado_cud: document.getElementById("estadoCud"),
+  comuna: document.getElementById("comuna"),
+  barrio: document.getElementById("barrio"),
   vivienda_particular_colectiva: document.getElementById("viviendaParticularColectiva"),
   tipo_convivencia: document.getElementById("tipoConvivencia"),
   tipo_vivienda_estandarizada: document.getElementById("tipoViviendaEstandarizada"),
@@ -148,6 +155,8 @@ function readFilters() {
     p_sexo: readFilterValue(filterControls.sexo, "sexo"),
     p_junta_discapacidad: readFilterValue(filterControls.junta_discapacidad, "junta_discapacidad"),
     p_estado_cud: readFilterValue(filterControls.estado_cud, "estado_cud"),
+    p_comuna: readFilterValue(filterControls.comuna, "comuna"),
+    p_barrio: readFilterValue(filterControls.barrio, "barrio"),
     p_vivienda_particular_colectiva: readFilterValue(filterControls.vivienda_particular_colectiva, "vivienda_particular_colectiva"),
     p_tipo_convivencia: readFilterValue(filterControls.tipo_convivencia, "tipo_convivencia"),
     p_tipo_vivienda: null,
@@ -185,8 +194,22 @@ async function rpc(functionName, body = {}) {
   return response.json();
 }
 
+async function consultarDashboard(filters) {
+  const response = await rpc("consultar_dashboard_v4", filters);
+  return Array.isArray(response) ? response[0] : response;
+}
+
+async function consultarDashboardBasico(filters) {
+  const response = await rpc("consultar_dashboard_basico_v4", filters);
+  return Array.isArray(response) ? response[0] : response;
+}
+
 async function cargarFiltros() {
-  const rows = await rpc("consultar_filtros_rango_etario");
+  const [rows, geografiaRows] = await Promise.all([
+    rpc("consultar_filtros_rango_etario"),
+    rpc("consultar_geografia_filtros"),
+  ]);
+  geoFilterRows = geografiaRows || [];
   Object.entries(filterControls).forEach(([filterName, control]) => {
     if (multiValueFilters.has(filterName) && control.classList.contains("checkbox-filter")) {
       control.innerHTML = `<div class="muted">${escapeHtml(control.dataset.emptyLabel || "Todas")}</div>`;
@@ -212,6 +235,31 @@ async function cargarFiltros() {
     option.textContent = row.valor;
     control.appendChild(option);
   }
+  cargarOpcionesGeograficas();
+}
+
+function cargarOpcionesGeograficas() {
+  const comunaControl = filterControls.comuna;
+  const barrioControl = filterControls.barrio;
+  if (!comunaControl || !barrioControl) return;
+  const selectedComuna = comunaControl.value || "";
+  const selectedBarrio = barrioControl.value || "";
+  const comunas = [...new Set(geoFilterRows.map(row => row.comuna).filter(Boolean))].sort((a, b) => a.localeCompare(b, "es-AR", { numeric: true }));
+  const barrios = [...new Set(geoFilterRows
+    .filter(row => !selectedComuna || row.comuna === selectedComuna)
+    .map(row => row.barrio)
+    .filter(Boolean))]
+    .sort((a, b) => a.localeCompare(b, "es-AR"));
+
+  comunaControl.innerHTML = "";
+  comunaControl.appendChild(new Option("Todas", ""));
+  comunas.forEach(comuna => comunaControl.appendChild(new Option(comuna, comuna)));
+  comunaControl.value = selectedComuna;
+
+  barrioControl.innerHTML = "";
+  barrioControl.appendChild(new Option("Todos", ""));
+  barrios.forEach(barrio => barrioControl.appendChild(new Option(barrio, barrio)));
+  barrioControl.value = barrios.includes(selectedBarrio) ? selectedBarrio : "";
 }
 
 function renderGaugeCard(totalBase, periodos) {
@@ -340,6 +388,26 @@ function renderHeatMap(rows, totalSelected) {
   });
 }
 
+function renderGeoSummary(rows) {
+  if (!geoSummaryEl) return;
+  const mode = geoTableModeEl?.value || "comuna";
+  const label = mode === "barrio" ? "Barrio" : "Comuna";
+  const filtered = rows.filter(row => row.nivel === label);
+  const total = filtered.reduce((sum, row) => sum + Number(row.total || 0), 0);
+  if (!filtered.length) {
+    geoSummaryEl.className = "geo-summary empty";
+    geoSummaryEl.innerHTML = `No hay ${label.toLowerCase()}s para los filtros seleccionados.`;
+    return;
+  }
+  const body = filtered.map(row => {
+    const pct = total ? (Number(row.total || 0) / total) * 100 : 0;
+    const filterAttr = mode === "barrio" ? `data-barrio="${escapeHtml(row.categoria)}"` : `data-comuna="${escapeHtml(row.categoria)}"`;
+    return `<tr><td><button type="button" class="link-row" ${filterAttr}>${escapeHtml(row.categoria)}</button></td><td class="num">${formatNumber(row.total)}</td><td class="num">${formatPct(pct)}</td></tr>`;
+  }).join("");
+  geoSummaryEl.className = "geo-summary";
+  geoSummaryEl.innerHTML = `<table><thead><tr><th>${label}</th><th>Personas</th><th>%</th></tr></thead><tbody>${body}</tbody></table>`;
+}
+
 async function toggleMapFullscreen() {
   if (!mapCard || !document.fullscreenEnabled) return;
   if (document.fullscreenElement === mapCard) {
@@ -361,6 +429,7 @@ function limpiarFiltros() {
       control.value = "";
     }
   });
+  cargarOpcionesGeograficas();
   document.querySelectorAll(".filter-group[open]").forEach(group => { group.open = false; });
   consultar();
 }
@@ -421,7 +490,7 @@ function renderResults(rows) {
 async function mostrarDetalleOtrosEquipamiento() {
   otrosDetalleContenido.textContent = "Cargando...";
   otrosModal.showModal();
-  const rows = await rpc("consultar_tipo_equipamiento_otros_detalle", readFilters());
+  const rows = await rpc("consultar_tipo_equipamiento_otros_detalle_geo", readFilters());
   const total = rows.reduce((sum, row) => sum + Number(row.total || 0), 0);
   const body = rows.map(row => `<tr><td>${escapeHtml(row.detalle)}</td><td>${formatNumber(row.total)}</td><td>${formatPct(total ? (Number(row.total || 0) / total) * 100 : 0)}</td></tr>`).join("");
   otrosDetalleContenido.innerHTML = rows.length ? `<table><thead><tr><th>Detalle</th><th>Total</th><th>%</th></tr></thead><tbody>${body}</tbody></table>` : "No hay detalle disponible para los filtros actuales.";
@@ -450,31 +519,56 @@ function descargarTablas() { if (lastRows.length) downloadBlob("reporte_sistema_
 function descargarGraficos() { if (lastRows.length) downloadBlob("reporte_sistema_consultas_graficos.html", `<!doctype html><html lang="es-AR"><head><meta charset="utf-8"><title>Gráficos Sistema de Consultas</title><link rel="stylesheet" href="${new URL("styles.css", window.location.href).href}"></head><body><main class="shell"><h1>Sistema de Consultas DGINCD</h1>${kpisEl.outerHTML}${resultsEl.outerHTML}</main></body></html>`, "text/html;charset=utf-8"); }
 
 async function consultar() {
+  const queryId = ++activeQueryId;
   consultarBtn.disabled = true;
   limpiarFiltrosBtn.disabled = true;
   statusEl.textContent = "Consultando Supabase...";
   try {
     const filters = readFilters();
-    const [kpis, rows, discapacidadMensual] = await Promise.all([rpc("consultar_rango_etario_kpis", filters), rpc("consultar_rango_etario_resumen", filters), rpc("consultar_discapacidad_mensual", filters)]);
-    lastKpis = kpis; lastRows = rows; lastDiscapacidadMensual = discapacidadMensual;
+    let kpis = [];
+    let rows = [];
+    let discapacidadMensual = [];
+    let mapRows = [];
+    let geoSummaryRows = [];
+    [kpis, rows, discapacidadMensual] = await Promise.all([
+      rpc("consultar_rango_etario_kpis_geo", filters),
+      rpc("consultar_rango_etario_resumen_geo", filters),
+      rpc("consultar_discapacidad_mensual_geo", filters),
+    ]);
+    if (queryId !== activeQueryId) return;
+    lastKpis = kpis; lastRows = rows; lastDiscapacidadMensual = discapacidadMensual; lastMapRows = mapRows;
     renderKpis(kpis, rows, discapacidadMensual); renderResults(rows);
+    consultarBtn.disabled = false;
+    limpiarFiltrosBtn.disabled = false;
     statusEl.textContent = "Indicadores listos. Actualizando mapa...";
     try {
-      const mapRows = await rpc("consultar_mapa_calor", filters);
+      [mapRows, geoSummaryRows] = await Promise.all([
+        rpc("consultar_mapa_calor_geo", filters),
+        rpc("consultar_geografia_resumen", filters),
+      ]);
+      if (queryId !== activeQueryId) return;
       lastMapRows = mapRows;
-      const kpiItem = Array.isArray(kpis) ? kpis[0] : kpis;
-      renderHeatMap(mapRows, Number(kpiItem?.total_base || 0));
-      statusEl.textContent = "Consulta finalizada.";
+      lastGeoSummaryRows = geoSummaryRows;
     } catch (mapError) {
+      if (queryId !== activeQueryId) return;
       lastMapRows = [];
+      lastGeoSummaryRows = [];
       mapCoverageEl.textContent = "Mapa no disponible";
+      renderGeoSummary([]);
       statusEl.textContent = `Indicadores listos. No se pudo actualizar el mapa: ${mapError.message}`;
+      return;
     }
+    const kpiItem = Array.isArray(kpis) ? kpis[0] : kpis;
+    renderHeatMap(mapRows, Number(kpiItem?.total_base || 0));
+    renderGeoSummary(geoSummaryRows);
+    statusEl.textContent = "Consulta finalizada.";
   } catch (error) {
+    if (queryId !== activeQueryId) return;
     statusEl.textContent = error.message;
     resultsEl.innerHTML = '<div class="empty error">No se pudo completar la consulta.</div>';
     kpisEl.innerHTML = "";
     mapCoverageEl.textContent = "Mapa no disponible";
+    renderGeoSummary([]);
   } finally { consultarBtn.disabled = false; limpiarFiltrosBtn.disabled = false; }
 }
 
@@ -500,6 +594,20 @@ limpiarFiltrosBtn.addEventListener("click", limpiarFiltros);
 descargarTablasBtn.addEventListener("click", descargarTablas);
 descargarGraficosBtn.addEventListener("click", descargarGraficos);
 cerrarModalBtn.addEventListener("click", () => otrosModal.close());
+filterControls.comuna?.addEventListener("change", () => cargarOpcionesGeograficas());
+geoTableModeEl?.addEventListener("change", () => renderGeoSummary(lastGeoSummaryRows));
+geoSummaryEl?.addEventListener("click", event => {
+  const rowButton = event.target.closest(".link-row");
+  if (!rowButton) return;
+  if (rowButton.dataset.comuna) {
+    filterControls.comuna.value = rowButton.dataset.comuna;
+    cargarOpcionesGeograficas();
+  }
+  if (rowButton.dataset.barrio) {
+    filterControls.barrio.value = rowButton.dataset.barrio;
+  }
+  consultar();
+});
 resultsEl.addEventListener("click", event => { if (event.target.closest("[data-otros-equipamiento]")) mostrarDetalleOtrosEquipamiento().catch(error => { otrosDetalleContenido.textContent = error.message; }); });
 toggleMapFullscreenBtn?.addEventListener("click", () => toggleMapFullscreen().catch(() => {}));
 document.addEventListener("fullscreenchange", () => {

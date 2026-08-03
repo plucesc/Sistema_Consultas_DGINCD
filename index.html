@@ -37,9 +37,21 @@
         <section class="status" id="status">Cargando filtros...</section>
         <section class="kpis" id="kpis"></section>
         <section class="results" id="results"></section>
-        <section class="map-card" id="mapCard" aria-labelledby="mapTitle">
-          <header><div><h2 id="mapTitle">Mapa de calor</h2><p>Bloques por calle y tramo de altura; se omiten bloques con menos de 5 personas.</p></div><div class="map-actions"><strong id="mapCoverage">Sin consultar</strong><button type="button" id="toggleMapFullscreen" class="icon-btn" title="Maximizar mapa" aria-label="Maximizar mapa">⛶</button></div></header>
-          <div id="heatMap" role="img" aria-label="Mapa de calor de personas según los filtros seleccionados"></div>
+        <section class="geo-section">
+          <section class="map-card" id="mapCard" aria-labelledby="mapTitle">
+            <header><div><h2 id="mapTitle">Mapa de calor</h2><p>Bloques por calle y tramo de altura; se omiten bloques con menos de 5 personas.</p></div><div class="map-actions"><strong id="mapCoverage">Sin consultar</strong><button type="button" id="toggleMapFullscreen" class="icon-btn" title="Maximizar mapa" aria-label="Maximizar mapa">⛶</button></div></header>
+            <div id="heatMap" role="img" aria-label="Mapa de calor de personas según los filtros seleccionados"></div>
+          </section>
+          <section class="geo-table-card" aria-labelledby="geoTableTitle">
+            <header>
+              <div>
+                <h2 id="geoTableTitle">Distribución territorial</h2>
+                <p>Seleccioná una fila para aplicar el filtro al tablero.</p>
+              </div>
+              <label>Ver por<select id="geoTableMode"><option value="comuna">Comunas</option><option value="barrio">Barrios</option></select></label>
+            </header>
+            <div id="geoSummary" class="geo-summary empty">Sin consultar</div>
+          </section>
         </section>
       </section>
 
@@ -50,6 +62,7 @@
         <fieldset><legend>Discapacidad</legend><div class="checkbox-filter" id="juntaDiscapacidad" data-empty-label="Todas"></div></fieldset>
         <fieldset><legend>Sexo</legend><label>Sexo<select id="sexo"><option value="">Todos</option></select></label></fieldset>
         <fieldset><legend>Estado CUD</legend><label>Estado<select id="estadoCud"><option value="">Todos</option></select></label></fieldset>
+        <fieldset><legend>Territorio</legend><label>Comuna<select id="comuna"><option value="">Todas</option></select></label><label>Barrio<select id="barrio"><option value="">Todos</option></select></label></fieldset>
         <fieldset><legend>Orientación Prestacional</legend><label>Orientación<select id="orientacionPrestacional"><option value="">Todas</option></select></label></fieldset>
         <fieldset><legend>Equipamiento</legend><label>Equipamiento<select id="equipamiento"><option value="">Todos</option></select></label></fieldset>
         <fieldset><legend>Condición de Actividad</legend><div class="checkbox-filter" id="condicionActividad" data-empty-label="Todas"></div></fieldset>
@@ -81,7 +94,7 @@
   <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
   <script src="config.js"></script>
-  <script src="app_heat.js?v=20260629-heat-intenso-caba-1"></script>
+  <script src="app_heat.js?v=20260803-territorio-1"></script>
 </body>
 </html>
 
