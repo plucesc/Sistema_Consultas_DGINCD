@@ -28,6 +28,9 @@ let lastGeoSummaryRows = [];
 let geoFilterRows = [];
 let heatMap = null;
 let heatLayer = null;
+let boundaryLayer = null;
+let boundaryDataPromise = null;
+let boundaryData = { comunas: null, barrios: null };
 let authSession = JSON.parse(localStorage.getItem("sistemaConsultasSession") || "null");
 let activeQueryId = 0;
 
@@ -174,6 +177,14 @@ function formatPeriodo(value) {
   return `${month}/${year}`;
 }
 function escapeHtml(value) { return String(value ?? "Sin dato").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;"); }
+function normalizeGeoName(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
 
 function groupRows(rows) {
   return rows.reduce((acc, row) => {
@@ -282,6 +293,76 @@ function ensureHeatMap() {
   return heatMap;
 }
 
+async function loadBoundaryData() {
+  if (boundaryDataPromise) return boundaryDataPromise;
+  boundaryDataPromise = Promise.all([
+    fetch("comunas.json").then(response => {
+      if (!response.ok) throw new Error("No se pudo cargar comunas.json");
+      return response.json();
+    }),
+    fetch("barrios.json").then(response => {
+      if (!response.ok) throw new Error("No se pudo cargar barrios.json");
+      return response.json();
+    }),
+  ]).then(([comunas, barrios]) => {
+    boundaryData = { comunas, barrios };
+    return boundaryData;
+  }).catch(error => {
+    console.warn(error);
+    boundaryData = { comunas: null, barrios: null };
+    return boundaryData;
+  });
+  return boundaryDataPromise;
+}
+
+function findBoundaryFeature(filters) {
+  const selectedBarrio = filters?.p_barrio;
+  const selectedComuna = filters?.p_comuna;
+  if (selectedBarrio && boundaryData.barrios?.features) {
+    const wanted = normalizeGeoName(selectedBarrio);
+    const feature = boundaryData.barrios.features.find(item => normalizeGeoName(item.properties?.nombre) === wanted);
+    if (feature) return { type: "barrio", feature };
+  }
+  if (selectedComuna && boundaryData.comunas?.features) {
+    const comunaNumber = String(selectedComuna).match(/\d+/)?.[0];
+    const feature = boundaryData.comunas.features.find(item => String(item.properties?.comuna) === comunaNumber);
+    if (feature) return { type: "comuna", feature };
+  }
+  return null;
+}
+
+function drawSelectedBoundary(filters) {
+  if (!heatMap || !window.L) return;
+  if (boundaryLayer) {
+    boundaryLayer.remove();
+    boundaryLayer = null;
+  }
+  const selected = findBoundaryFeature(filters);
+  if (!selected) {
+    focusHeatMapOnCaba(false);
+    return;
+  }
+  boundaryLayer = L.geoJSON(selected.feature, {
+    style: {
+      color: selected.type === "barrio" ? "#0f4d7d" : "#073b63",
+      weight: selected.type === "barrio" ? 3 : 4,
+      opacity: 0.95,
+      fillColor: "#1464a5",
+      fillOpacity: 0.05,
+    },
+    interactive: false,
+  }).addTo(heatMap);
+  const bounds = boundaryLayer.getBounds();
+  if (bounds.isValid()) {
+    heatMap.fitBounds(bounds, {
+      animate: false,
+      paddingTopLeft: [26, 26],
+      paddingBottomRight: [26, 26],
+      maxZoom: selected.type === "barrio" ? 14 : 13,
+    });
+  }
+}
+
 function focusHeatMapOnCaba(animate = false) {
   if (!heatMap) return;
   heatMap.fitBounds(cabaBounds, {
@@ -340,13 +421,14 @@ function removeLegacyHeatArtifacts() {
   });
 }
 
-function renderHeatMap(rows, totalSelected) {
+async function renderHeatMap(rows, totalSelected, filters = null) {
   if (!window.L || typeof L.heatLayer !== "function") {
     mapCoverageEl.textContent = "No se pudo cargar Leaflet";
     return;
   }
   const map = ensureHeatMap();
   if (!map) return;
+  await loadBoundaryData();
   if (heatLayer) heatLayer.remove();
   removeLegacyHeatArtifacts();
   const validRows = rows.filter(row => Number.isFinite(Number(row.lat)) && Number.isFinite(Number(row.lon)) && Number(row.total) > 0);
@@ -384,7 +466,7 @@ function renderHeatMap(rows, totalSelected) {
   mapCoverageEl.textContent = `${formatNumber(represented)} de ${formatNumber(totalSelected)} filtradas · ${formatNumber(validRows.length)} bloques`;
   requestAnimationFrame(() => {
     map.invalidateSize();
-    if (document.fullscreenElement === mapCard) focusHeatMapOnCaba(false);
+    drawSelectedBoundary(filters);
   });
 }
 
@@ -559,7 +641,7 @@ async function consultar() {
       return;
     }
     const kpiItem = Array.isArray(kpis) ? kpis[0] : kpis;
-    renderHeatMap(mapRows, Number(kpiItem?.total_base || 0));
+    await renderHeatMap(mapRows, Number(kpiItem?.total_base || 0), filters);
     renderGeoSummary(geoSummaryRows);
     statusEl.textContent = "Consulta finalizada.";
   } catch (error) {
@@ -619,7 +701,9 @@ document.addEventListener("fullscreenchange", () => {
   }
   requestAnimationFrame(() => {
     heatMap?.invalidateSize();
-    if (expanded) focusHeatMapOnCaba(false);
+    if (expanded) {
+      try { drawSelectedBoundary(readFilters()); } catch { focusHeatMapOnCaba(false); }
+    }
     updateClassicHeatStyle();
     if (heatLayer?._canvas) heatLayer._canvas.style.opacity = heatOpacityForZoom(heatMap);
   });
