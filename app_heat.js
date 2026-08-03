@@ -29,6 +29,7 @@ let geoFilterRows = [];
 let heatMap = null;
 let heatLayer = null;
 let boundaryLayer = null;
+let choroplethLayer = null;
 let boundaryDataPromise = null;
 let boundaryData = { comunas: null, barrios: null };
 let authSession = JSON.parse(localStorage.getItem("sistemaConsultasSession") || "null");
@@ -331,36 +332,92 @@ function findBoundaryFeature(filters) {
   return null;
 }
 
-function drawSelectedBoundary(filters) {
+function territoryFeatureName(feature, mode) {
+  if (mode === "barrio") return feature.properties?.nombre || "";
+  return `Comuna ${feature.properties?.comuna || ""}`;
+}
+
+function blueChoroplethColor(value, maxValue) {
+  if (!value) return "#f7fbff";
+  const ratio = Math.max(0, Math.min(1, Number(value || 0) / Math.max(Number(maxValue || 0), 1)));
+  if (ratio >= 0.82) return "#08306b";
+  if (ratio >= 0.64) return "#08519c";
+  if (ratio >= 0.46) return "#2171b5";
+  if (ratio >= 0.28) return "#4292c6";
+  if (ratio >= 0.12) return "#9ecae1";
+  return "#deebf7";
+}
+
+function buildTerritoryTotals(summaryRows, mode) {
+  const level = mode === "barrio" ? "Barrio" : "Comuna";
+  const totals = new Map();
+  (summaryRows || []).filter(row => row.nivel === level).forEach(row => {
+    totals.set(normalizeGeoName(row.categoria), Number(row.total || 0));
+  });
+  return totals;
+}
+
+function fitMapToTerritory(filters, mode) {
+  if (!heatMap || !window.L) return;
+  const selected = findBoundaryFeature(filters);
+  if (selected) {
+    const focusLayer = L.geoJSON(selected.feature);
+    const bounds = focusLayer.getBounds();
+    if (bounds.isValid()) {
+      heatMap.fitBounds(bounds, {
+        animate: false,
+        paddingTopLeft: [28, 28],
+        paddingBottomRight: [28, 28],
+        maxZoom: selected.type === "barrio" ? 14 : 13,
+      });
+      return;
+    }
+  }
+  focusHeatMapOnCaba(false);
+}
+
+function drawTerritoryChoropleth(summaryRows, filters) {
   if (!heatMap || !window.L) return;
   if (boundaryLayer) {
     boundaryLayer.remove();
     boundaryLayer = null;
   }
-  const selected = findBoundaryFeature(filters);
-  if (!selected) {
+  if (choroplethLayer) {
+    choroplethLayer.remove();
+    choroplethLayer = null;
+  }
+
+  const mode = filters?.p_barrio ? "barrio" : (geoTableModeEl?.value || "comuna");
+  const source = mode === "barrio" ? boundaryData.barrios : boundaryData.comunas;
+  if (!source?.features?.length) {
     focusHeatMapOnCaba(false);
     return;
   }
-  boundaryLayer = L.geoJSON(selected.feature, {
-    style: {
-      color: selected.type === "barrio" ? "#0f4d7d" : "#073b63",
-      weight: selected.type === "barrio" ? 3 : 4,
-      opacity: 0.95,
-      fillColor: "#1464a5",
-      fillOpacity: 0.05,
+
+  const totals = buildTerritoryTotals(summaryRows, mode);
+  const maxValue = Math.max(...Array.from(totals.values()), 1);
+  choroplethLayer = L.geoJSON(source, {
+    style: feature => {
+      const name = territoryFeatureName(feature, mode);
+      const total = totals.get(normalizeGeoName(name)) || 0;
+      const isActive = total > 0;
+      return {
+        color: isActive ? "#074a7a" : "#8aa7bd",
+        weight: isActive ? 1.6 : 0.8,
+        opacity: isActive ? 0.95 : 0.35,
+        fillColor: blueChoroplethColor(total, maxValue),
+        fillOpacity: isActive ? 0.72 : 0.10,
+      };
     },
-    interactive: false,
+    onEachFeature: (feature, layer) => {
+      const name = territoryFeatureName(feature, mode);
+      const total = totals.get(normalizeGeoName(name)) || 0;
+      layer.bindTooltip(`${escapeHtml(name)}: ${formatNumber(total)} personas`, { sticky: true });
+    },
+    interactive: true,
   }).addTo(heatMap);
-  const bounds = boundaryLayer.getBounds();
-  if (bounds.isValid()) {
-    heatMap.fitBounds(bounds, {
-      animate: false,
-      paddingTopLeft: [26, 26],
-      paddingBottomRight: [26, 26],
-      maxZoom: selected.type === "barrio" ? 14 : 13,
-    });
-  }
+
+  fitMapToTerritory(filters, mode);
 }
 
 function focusHeatMapOnCaba(animate = false) {
@@ -421,52 +478,25 @@ function removeLegacyHeatArtifacts() {
   });
 }
 
-async function renderHeatMap(rows, totalSelected, filters = null) {
-  if (!window.L || typeof L.heatLayer !== "function") {
+async function renderHeatMap(rows = [], totalSelected = 0, filters = null, geoSummaryRows = []) {
+  if (!window.L) {
     mapCoverageEl.textContent = "No se pudo cargar Leaflet";
     return;
   }
   const map = ensureHeatMap();
   if (!map) return;
   await loadBoundaryData();
-  if (heatLayer) heatLayer.remove();
+  if (heatLayer) {
+    heatLayer.remove();
+    heatLayer = null;
+  }
   removeLegacyHeatArtifacts();
-  const validRows = rows.filter(row => Number.isFinite(Number(row.lat)) && Number.isFinite(Number(row.lon)) && Number(row.total) > 0);
-  const maxValue = Math.max(...validRows.map(row => Number(row.total)), 1);
-  const points = validRows.map(row => [
-    Number(row.lat),
-    Number(row.lon),
-    heatColor(Number(row.total || 0), maxValue),
-  ]);
-  const heatStyle = heatStyleForZoom(map);
-  heatLayer = L.heatLayer(points, {
-    radius: heatStyle.radius,
-    blur: heatStyle.blur,
-    maxZoom: 12,
-    max: 1.05,
-    minOpacity: 0.30,
-    gradient: {
-      0.20: "#2c7bb6",
-      0.42: "#74add1",
-      0.64: "#ffffbf",
-      0.84: "#fdae61",
-      1: "#d95f3f",
-    },
-  }).addTo(map);
-  if (heatLayer._canvas) {
-    heatLayer._canvas.classList.add("leaflet-heatmap-layer");
-    heatLayer._canvas.style.opacity = heatOpacityForZoom(map);
-  }
-  if (heatLayer._heat?.radius) {
-    heatLayer._heat.radius(heatStyle.radius, heatStyle.blur);
-  }
   map.off("zoomend", updateClassicHeatStyle);
-  map.on("zoomend", updateClassicHeatStyle);
-  const represented = validRows.reduce((sum, row) => sum + Number(row.total || 0), 0);
-  mapCoverageEl.textContent = `${formatNumber(represented)} de ${formatNumber(totalSelected)} filtradas · ${formatNumber(validRows.length)} bloques`;
+  const mode = filters?.p_barrio ? "barrio" : (geoTableModeEl?.value || "comuna");
+  mapCoverageEl.textContent = `${formatNumber(totalSelected)} filtradas · vista por ${mode === "barrio" ? "barrios" : "comunas"}`;
   requestAnimationFrame(() => {
     map.invalidateSize();
-    drawSelectedBoundary(filters);
+    drawTerritoryChoropleth(geoSummaryRows, filters);
   });
 }
 
@@ -624,11 +654,9 @@ async function consultar() {
     limpiarFiltrosBtn.disabled = false;
     statusEl.textContent = "Indicadores listos. Actualizando mapa...";
     try {
-      [mapRows, geoSummaryRows] = await Promise.all([
-        rpc("consultar_mapa_calor_geo", filters),
-        rpc("consultar_geografia_resumen", filters),
-      ]);
+      geoSummaryRows = await rpc("consultar_geografia_resumen", filters);
       if (queryId !== activeQueryId) return;
+      mapRows = [];
       lastMapRows = mapRows;
       lastGeoSummaryRows = geoSummaryRows;
     } catch (mapError) {
@@ -641,7 +669,7 @@ async function consultar() {
       return;
     }
     const kpiItem = Array.isArray(kpis) ? kpis[0] : kpis;
-    await renderHeatMap(mapRows, Number(kpiItem?.total_base || 0), filters);
+    await renderHeatMap(mapRows, Number(kpiItem?.total_base || 0), filters, geoSummaryRows);
     renderGeoSummary(geoSummaryRows);
     statusEl.textContent = "Consulta finalizada.";
   } catch (error) {
@@ -677,7 +705,11 @@ descargarTablasBtn.addEventListener("click", descargarTablas);
 descargarGraficosBtn.addEventListener("click", descargarGraficos);
 cerrarModalBtn.addEventListener("click", () => otrosModal.close());
 filterControls.comuna?.addEventListener("change", () => cargarOpcionesGeograficas());
-geoTableModeEl?.addEventListener("change", () => renderGeoSummary(lastGeoSummaryRows));
+geoTableModeEl?.addEventListener("change", () => {
+  renderGeoSummary(lastGeoSummaryRows);
+  const kpiItem = Array.isArray(lastKpis) ? lastKpis[0] : lastKpis;
+  renderHeatMap(lastMapRows, Number(kpiItem?.total_base || 0), readFilters(), lastGeoSummaryRows).catch(() => {});
+});
 geoSummaryEl?.addEventListener("click", event => {
   const rowButton = event.target.closest(".link-row");
   if (!rowButton) return;
@@ -702,10 +734,8 @@ document.addEventListener("fullscreenchange", () => {
   requestAnimationFrame(() => {
     heatMap?.invalidateSize();
     if (expanded) {
-      try { drawSelectedBoundary(readFilters()); } catch { focusHeatMapOnCaba(false); }
+      try { drawTerritoryChoropleth(lastGeoSummaryRows, readFilters()); } catch { focusHeatMapOnCaba(false); }
     }
-    updateClassicHeatStyle();
-    if (heatLayer?._canvas) heatLayer._canvas.style.opacity = heatOpacityForZoom(heatMap);
   });
 });
 

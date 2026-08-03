@@ -58,13 +58,14 @@ select[multiple] option { padding: 4px 6px; }
 .gauge-readout em { color: var(--muted); font-style: normal; font-size: 1.15rem; }
 
 .results { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
-.geo-section { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 14px; margin-top: 14px; align-items: stretch; }
+.geo-section { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 14px; margin-top: 14px; align-items: stretch; min-height: 690px; }
 .map-card, .geo-table-card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.map-card { display: grid; grid-template-rows: auto minmax(0, 1fr); }
 .map-card header { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 14px; border-bottom: 1px solid var(--line); }
 .map-card h2 { font-size: 1.7rem; }
 .map-card p { margin-top: 2px; color: var(--muted); font-size: 1.15rem; }
 .map-card header strong { color: var(--brand-dark); font-size: 1.15rem; text-align: right; }
-#heatMap { width: 100%; height: 460px; background: #eef2f5; }
+#heatMap { width: 100%; height: 100%; min-height: 620px; background: #eef2f5; }
 #heatMap .heat-zone-cell,
 #heatMap .leaflet-marker-icon.heat-zone-cell,
 #heatMap .leaflet-marker-pane .heat-zone-cell,
@@ -134,6 +135,7 @@ select[multiple] option { padding: 4px 6px; }
   .filters-panel { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .filters-panel h2 { grid-column: 1 / -1; }
   .geo-section { grid-template-columns: 1fr; }
+  .geo-section { min-height: auto; }
   .geo-table-card { max-height: 420px; }
 }
 
@@ -150,7 +152,7 @@ select[multiple] option { padding: 4px 6px; }
   .bar-chart { min-height: 245px; }
   .vbar-item { flex-basis: 72px; grid-template-rows: auto 126px auto auto; }
   .vbar-track { height: 126px; }
-  #heatMap { height: 380px; }
+  #heatMap { min-height: 420px; }
   .map-card header { align-items: flex-start; }
   .map-actions { flex-direction: column; align-items: flex-end; gap: 6px; }
 }

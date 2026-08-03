@@ -3,14 +3,14 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Sistema de Consultas DGINCD</title>
+  <title>DGINCD GESTION DE CONSULTAS</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
   <section class="login-view" id="loginView">
     <form class="login-card" id="loginForm">
-      <h1>Sistema de Consultas DGINCD</h1>
+      <h1>DGINCD GESTION DE CONSULTAS</h1>
       <p>Ingresá con usuario y contraseña.</p>
       <label>Email<input id="loginEmail" type="email" autocomplete="username" required /></label>
       <label>Contraseña<input id="loginPassword" type="password" autocomplete="current-password" required /></label>
@@ -22,8 +22,8 @@
   <main class="shell hidden" id="appShell">
     <header class="topbar">
       <div>
-        <h1>Sistema de Consultas DGINCD</h1>
-        <p>Dashboard online con filtros combinados.</p>
+        <h1>DGINCD GESTION DE CONSULTAS</h1>
+        <p>Dashboard online</p>
       </div>
       <div class="actions">
         <button id="descargarTablasBtn" type="button">Descargar tablas</button>
@@ -39,8 +39,8 @@
         <section class="results" id="results"></section>
         <section class="geo-section">
           <section class="map-card" id="mapCard" aria-labelledby="mapTitle">
-            <header><div><h2 id="mapTitle">Mapa de calor</h2><p>Bloques por calle y tramo de altura; se omiten bloques con menos de 5 personas.</p></div><div class="map-actions"><strong id="mapCoverage">Sin consultar</strong><button type="button" id="toggleMapFullscreen" class="icon-btn" title="Maximizar mapa" aria-label="Maximizar mapa">⛶</button></div></header>
-            <div id="heatMap" role="img" aria-label="Mapa de calor de personas según los filtros seleccionados"></div>
+            <header><div><h2 id="mapTitle">Mapa territorial</h2><p>Coropleta en tonos azules por comuna o barrio según la selección territorial.</p></div><div class="map-actions"><strong id="mapCoverage">Sin consultar</strong><button type="button" id="toggleMapFullscreen" class="icon-btn" title="Maximizar mapa" aria-label="Maximizar mapa">⛶</button></div></header>
+            <div id="heatMap" role="img" aria-label="Mapa territorial de personas según los filtros seleccionados"></div>
           </section>
           <section class="geo-table-card" aria-labelledby="geoTableTitle">
             <header>
@@ -94,7 +94,6 @@
   <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
   <script src="config.js"></script>
-  <script src="app_heat.js?v=20260803-limites-1"></script>
+  <script src="app_heat.js?v=20260803-coropleta-1"></script>
 </body>
 </html>
-
