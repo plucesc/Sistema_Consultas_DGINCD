@@ -337,17 +337,17 @@ function territoryFeatureName(feature, mode) {
   return `Comuna ${feature.properties?.comuna || ""}`;
 }
 
-function blueChoroplethColor(value, minValue, maxValue) {
+function territoryChoroplethColor(value, minValue, maxValue) {
   if (!value) return "#f7fbff";
   const min = Number(minValue || 0);
   const max = Number(maxValue || 0);
   const ratio = max > min ? Math.max(0, Math.min(1, (Number(value || 0) - min) / (max - min))) : 1;
-  if (ratio >= 0.82) return "#08306b";
-  if (ratio >= 0.64) return "#08519c";
-  if (ratio >= 0.46) return "#2171b5";
-  if (ratio >= 0.28) return "#4292c6";
-  if (ratio >= 0.12) return "#9ecae1";
-  return "#deebf7";
+  if (ratio >= 0.82) return "#e66101";
+  if (ratio >= 0.64) return "#fdae61";
+  if (ratio >= 0.46) return "#fee08b";
+  if (ratio >= 0.28) return "#d9ef8b";
+  if (ratio >= 0.12) return "#91bfdb";
+  return "#4575b4";
 }
 
 function buildTerritoryTotals(summaryRows, mode) {
@@ -409,14 +409,14 @@ function drawTerritoryChoropleth(summaryRows, filters) {
         color: isActive ? "#074a7a" : "#8aa7bd",
         weight: isActive ? 1.6 : 0.8,
         opacity: isActive ? 0.95 : 0.35,
-        fillColor: blueChoroplethColor(total, minValue, maxValue),
+        fillColor: territoryChoroplethColor(total, minValue, maxValue),
         fillOpacity: isActive ? 0.48 : 0.04,
       };
     },
     onEachFeature: (feature, layer) => {
       const name = territoryFeatureName(feature, mode);
       const total = totals.get(normalizeGeoName(name)) || 0;
-      layer.bindTooltip(`${escapeHtml(name)}<br>${formatNumber(total)}`, {
+      layer.bindTooltip(escapeHtml(name), {
         permanent: true,
         direction: "center",
         className: "territory-label",
