@@ -240,6 +240,11 @@ async function consultarDashboardBasico(filters) {
   return Array.isArray(response) ? response[0] : response;
 }
 
+async function consultarTableroUnificado(filters) {
+  const response = await rpc("consultar_tablero_unificado_v4", filters);
+  return Array.isArray(response) ? response[0] : response;
+}
+
 async function cargarFiltros() {
   const [rows, geografiaRows] = await Promise.all([
     rpc("consultar_filtros_rango_etario"),
@@ -678,37 +683,17 @@ async function consultar(statusMessage = "Filtrando datos...") {
   statusEl.textContent = statusMessage;
   try {
     const filters = readFilters();
-    let kpis = [];
-    let rows = [];
-    let discapacidadMensual = [];
-    let mapRows = [];
-    let geoSummaryRows = [];
-    [kpis, rows, discapacidadMensual] = await Promise.all([
-      rpc("consultar_rango_etario_kpis_geo", filters),
-      rpc("consultar_rango_etario_resumen_geo", filters),
-      rpc("consultar_discapacidad_mensual_geo", filters),
-    ]);
+    const tablero = await consultarTableroUnificado(filters);
     if (queryId !== activeQueryId) return;
+    const kpis = tablero?.kpis || [];
+    const rows = tablero?.resumen || [];
+    const discapacidadMensual = tablero?.discapacidad_mensual || [];
+    const geoSummaryRows = tablero?.geografia_resumen || [];
+    const mapRows = [];
     lastKpis = kpis; lastRows = rows; lastDiscapacidadMensual = discapacidadMensual; lastMapRows = mapRows;
     renderKpis(kpis, rows, discapacidadMensual); renderResults(rows);
-    consultarBtn.disabled = false;
-    limpiarFiltrosBtn.disabled = false;
-    statusEl.textContent = "Indicadores listos. Filtrando mapa territorial...";
-    try {
-      geoSummaryRows = await rpc("consultar_geografia_resumen", filters);
-      if (queryId !== activeQueryId) return;
-      mapRows = [];
-      lastMapRows = mapRows;
-      lastGeoSummaryRows = geoSummaryRows;
-    } catch (mapError) {
-      if (queryId !== activeQueryId) return;
-      lastMapRows = [];
-      lastGeoSummaryRows = [];
-      mapCoverageEl.textContent = "Mapa no disponible";
-      renderGeoSummary([]);
-      statusEl.textContent = `Indicadores listos. No se pudo actualizar el mapa: ${mapError.message}`;
-      return;
-    }
+    lastGeoSummaryRows = geoSummaryRows;
+    statusEl.textContent = "Datos listos. Actualizando mapa territorial...";
     const kpiItem = Array.isArray(kpis) ? kpis[0] : kpis;
     await renderHeatMap(mapRows, Number(kpiItem?.total_base || 0), filters, geoSummaryRows);
     renderGeoSummary(geoSummaryRows);
@@ -740,7 +725,7 @@ loginForm.addEventListener("submit", async event => {
 });
 
 logoutBtn.addEventListener("click", signOut);
-consultarBtn.addEventListener("click", consultar);
+consultarBtn.addEventListener("click", () => consultar("Filtrando datos..."));
 limpiarFiltrosBtn.addEventListener("click", limpiarFiltros);
 descargarTablasBtn.addEventListener("click", descargarTablas);
 descargarGraficosBtn.addEventListener("click", descargarGraficos);
