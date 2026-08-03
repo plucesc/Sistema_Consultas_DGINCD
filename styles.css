@@ -75,6 +75,19 @@ select[multiple] option { padding: 4px 6px; }
 #heatMap .leaflet-marker-pane .leaflet-marker-shadow {
   display: none !important;
 }
+.territory-label {
+  border: 1px solid rgba(7, 59, 99, 0.18);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.72);
+  color: #073b63;
+  box-shadow: none;
+  font-size: 1.05rem;
+  font-weight: 800;
+  line-height: 1.15;
+  padding: 2px 4px;
+  text-align: center;
+}
+.territory-label::before { display: none; }
 .map-actions { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
 .icon-btn { border: 1px solid var(--line); background: #fff; color: var(--brand-dark); border-radius: 6px; min-width: 34px; height: 34px; padding: 0 8px; font-size: 1.25rem; line-height: 1; cursor: pointer; }
 .icon-btn:hover { border-color: var(--brand); background: #f2f7fc; }

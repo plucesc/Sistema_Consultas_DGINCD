@@ -337,9 +337,11 @@ function territoryFeatureName(feature, mode) {
   return `Comuna ${feature.properties?.comuna || ""}`;
 }
 
-function blueChoroplethColor(value, maxValue) {
+function blueChoroplethColor(value, minValue, maxValue) {
   if (!value) return "#f7fbff";
-  const ratio = Math.max(0, Math.min(1, Number(value || 0) / Math.max(Number(maxValue || 0), 1)));
+  const min = Number(minValue || 0);
+  const max = Number(maxValue || 0);
+  const ratio = max > min ? Math.max(0, Math.min(1, (Number(value || 0) - min) / (max - min))) : 1;
   if (ratio >= 0.82) return "#08306b";
   if (ratio >= 0.64) return "#08519c";
   if (ratio >= 0.46) return "#2171b5";
@@ -395,7 +397,9 @@ function drawTerritoryChoropleth(summaryRows, filters) {
   }
 
   const totals = buildTerritoryTotals(summaryRows, mode);
-  const maxValue = Math.max(...Array.from(totals.values()), 1);
+  const positiveTotals = Array.from(totals.values()).filter(value => value > 0);
+  const minValue = Math.min(...positiveTotals, 0);
+  const maxValue = Math.max(...positiveTotals, 1);
   choroplethLayer = L.geoJSON(source, {
     style: feature => {
       const name = territoryFeatureName(feature, mode);
@@ -405,14 +409,18 @@ function drawTerritoryChoropleth(summaryRows, filters) {
         color: isActive ? "#074a7a" : "#8aa7bd",
         weight: isActive ? 1.6 : 0.8,
         opacity: isActive ? 0.95 : 0.35,
-        fillColor: blueChoroplethColor(total, maxValue),
-        fillOpacity: isActive ? 0.72 : 0.10,
+        fillColor: blueChoroplethColor(total, minValue, maxValue),
+        fillOpacity: isActive ? 0.48 : 0.04,
       };
     },
     onEachFeature: (feature, layer) => {
       const name = territoryFeatureName(feature, mode);
       const total = totals.get(normalizeGeoName(name)) || 0;
-      layer.bindTooltip(`${escapeHtml(name)}: ${formatNumber(total)} personas`, { sticky: true });
+      layer.bindTooltip(`${escapeHtml(name)}<br>${formatNumber(total)}`, {
+        permanent: true,
+        direction: "center",
+        className: "territory-label",
+      });
     },
     interactive: true,
   }).addTo(heatMap);
