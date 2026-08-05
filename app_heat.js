@@ -4,6 +4,7 @@ const loginForm = document.getElementById("loginForm");
 const loginStatus = document.getElementById("loginStatus");
 const logoutBtn = document.getElementById("logoutBtn");
 const statusEl = document.getElementById("status");
+const toastRegion = document.getElementById("toastRegion");
 const resultsEl = document.getElementById("results");
 const kpisEl = document.getElementById("kpis");
 const consultarBtn = document.getElementById("consultarBtn");
@@ -19,6 +20,12 @@ const mapCard = document.getElementById("mapCard");
 const toggleMapFullscreenBtn = document.getElementById("toggleMapFullscreen");
 const geoTableModeEl = document.getElementById("geoTableMode");
 const geoSummaryEl = document.getElementById("geoSummary");
+const togglePasswordBtn = document.getElementById("togglePasswordBtn");
+const loginPasswordInput = document.getElementById("loginPassword");
+const sessionUserEl = document.getElementById("sessionUser");
+const sessionRoleEl = document.getElementById("sessionRole");
+const lastQueryAtEl = document.getElementById("lastQueryAt");
+const activeFiltersCountEl = document.getElementById("activeFiltersCount");
 
 let lastKpis = null;
 let lastRows = [];
@@ -34,7 +41,16 @@ let boundaryDataPromise = null;
 let boundaryData = { comunas: null, barrios: null };
 let authSession = JSON.parse(localStorage.getItem("sistemaConsultasSession") || "null");
 let activeQueryId = 0;
+let toastTimer = null;
 
+const APP_VERSION = "20260804-logs-1";
+const BUTTON_TEXT = {
+  consultar: consultarBtn.textContent,
+  limpiar: limpiarFiltrosBtn.textContent,
+  descargarTablas: descargarTablasBtn.textContent,
+  descargarGraficos: descargarGraficosBtn.textContent,
+  logout: logoutBtn.textContent,
+};
 const cabaBounds = [
   [-34.705, -58.535],
   [-34.525, -58.335],
@@ -116,6 +132,56 @@ function showApp(show) {
   appShell.classList.toggle("hidden", !show);
 }
 
+function showToast(message, type = "info", sticky = false) {
+  if (!toastRegion) return;
+  clearTimeout(toastTimer);
+  toastRegion.className = `toast-region show ${type}`;
+  toastRegion.textContent = message;
+  if (!sticky) {
+    toastTimer = setTimeout(() => {
+      toastRegion.classList.remove("show");
+    }, 4200);
+  }
+}
+
+function hideToast() {
+  clearTimeout(toastTimer);
+  toastRegion?.classList.remove("show");
+}
+
+function setStatus(message, options = {}) {
+  const { type = "info", sticky = true, toast = true } = options;
+  statusEl.textContent = message;
+  if (toast) showToast(message, type, sticky);
+}
+
+function setButtonBusy(button, busy, textWhenBusy, textWhenReady) {
+  button.disabled = busy;
+  button.textContent = busy ? textWhenBusy : textWhenReady;
+}
+
+function sessionUserEmail() {
+  return authSession?.user?.email || "Sin sesión";
+}
+
+function sessionRole() {
+  return authSession?.user?.app_metadata?.role || authSession?.user?.user_metadata?.role || "usuario";
+}
+
+function formatDateTime(value) {
+  return new Intl.DateTimeFormat("es-AR", {
+    dateStyle: "short",
+    timeStyle: "short",
+  }).format(value);
+}
+
+function updateSessionSummary(filters = null, lastQueryAt = null) {
+  if (sessionUserEl) sessionUserEl.textContent = sessionUserEmail();
+  if (sessionRoleEl) sessionRoleEl.textContent = sessionRole() === "admin" ? "Administrador" : "Usuario";
+  if (activeFiltersCountEl) activeFiltersCountEl.textContent = String(filters ? Object.keys(filtrosActivos(filters)).length : 0);
+  if (lastQueryAt && lastQueryAtEl) lastQueryAtEl.textContent = formatDateTime(lastQueryAt);
+}
+
 async function signIn(email, password) {
   const response = await fetch(supabaseUrl("/auth/v1/token?grant_type=password"), {
     method: "POST",
@@ -135,6 +201,10 @@ async function signOut() {
   } finally {
     authSession = null;
     localStorage.removeItem("sistemaConsultasSession");
+    setButtonBusy(logoutBtn, false, "Saliendo...", BUTTON_TEXT.logout);
+    updateSessionSummary(null, null);
+    if (lastQueryAtEl) lastQueryAtEl.textContent = "Sin consultar";
+    hideToast();
     showApp(false);
   }
 }
@@ -211,6 +281,14 @@ function normalizeGeoLevel(value) {
   return normalized;
 }
 
+function normalizeCategory(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
 function groupRows(rows) {
   return rows.reduce((acc, row) => {
     const groupName = displayGroupName(row.grupo);
@@ -228,6 +306,37 @@ async function rpc(functionName, body = {}) {
   }
   if (!response.ok) throw new Error(`${response.status} ${await response.text()}`);
   return response.json();
+}
+
+function filtrosActivos(filters) {
+  return Object.fromEntries(Object.entries(filters).filter(([key, value]) => {
+    if (value === null || value === "" || value === undefined) return false;
+    if (key === "p_edad_desde" && Number(value) === 0) return false;
+    if (key === "p_edad_hasta" && Number(value) === 200) return false;
+    return true;
+  }));
+}
+
+async function registrarLog(accion, { detalle = {}, duracionMs = null, totalBase = null, resultado = "ok", errorMensaje = null } = {}) {
+  if (!authSession?.access_token) return;
+  try {
+    await fetch(supabaseUrl("/rest/v1/rpc/registrar_log_liviano"), {
+      method: "POST",
+      headers: authHeaders(),
+      body: JSON.stringify({
+        p_accion: accion,
+        p_detalle: detalle,
+        p_duracion_ms: duracionMs,
+        p_total_base: totalBase,
+        p_resultado: resultado,
+        p_error_mensaje: errorMensaje,
+        p_user_agent: navigator.userAgent,
+        p_app_version: APP_VERSION,
+      }),
+    });
+  } catch {
+    // El log no debe bloquear el uso del tablero.
+  }
 }
 
 async function consultarDashboard(filters) {
@@ -573,9 +682,10 @@ async function toggleMapFullscreen() {
 }
 
 function limpiarFiltros() {
-  statusEl.textContent = "Limpiando filtros...";
-  consultarBtn.disabled = true;
-  limpiarFiltrosBtn.disabled = true;
+  setStatus("Borrando filtros...", { sticky: true });
+  setButtonBusy(consultarBtn, true, "Consultando...", BUTTON_TEXT.consultar);
+  setButtonBusy(limpiarFiltrosBtn, true, "Borrando...", BUTTON_TEXT.limpiar);
+  registrarLog("limpiar_filtros");
   document.getElementById("fechaDesde").value = "";
   document.getElementById("fechaHasta").value = "";
   document.getElementById("edadDesde").value = "0";
@@ -589,7 +699,7 @@ function limpiarFiltros() {
   });
   cargarOpcionesGeograficas();
   document.querySelectorAll(".filter-group[open]").forEach(group => { group.open = false; });
-  consultar("Limpiando filtros y actualizando datos...");
+  consultar("Filtros borrados. Actualizando tablero...");
 }
 
 
@@ -618,8 +728,13 @@ function renderVerticalChart(groupName, items, options = {}) {
   const bars = items.map(item => {
     const total = Number(item.total || 0);
     const pct = totalGrupo ? (total / totalGrupo) * 100 : 0;
-    const isOtrosEquip = groupName === "Tipo de Equipamiento" && String(item.categoria).toLowerCase() === "otros";
-    return `<button class="vbar-item${isOtrosEquip ? " detail-trigger" : ""}" type="button" ${isOtrosEquip ? 'data-otros-equipamiento="1"' : ""} title="${escapeHtml(item.categoria)}: ${formatNumber(total)} (${formatPct(pct)})"><span class="vbar-value">${formatNumber(total)}</span><span class="vbar-track"><span class="vbar" style="height:${Math.max((total / maxValue) * 100, 2)}%"></span></span><span class="vbar-label">${escapeHtml(item.categoria)}</span><span class="vbar-pct">${formatPct(pct)}</span></button>`;
+    const isOtrosEquip = groupName === "Tipo de Equipamiento" && normalizeCategory(item.categoria) === "otros";
+    const content = `<span class="vbar-value">${formatNumber(total)}</span><span class="vbar-track"><span class="vbar" style="height:${Math.max((total / maxValue) * 100, 2)}%"></span></span><span class="vbar-label">${escapeHtml(item.categoria)}</span><span class="vbar-pct">${formatPct(pct)}</span>`;
+    const title = `${escapeHtml(item.categoria)}: ${formatNumber(total)} (${formatPct(pct)})`;
+    if (isOtrosEquip) {
+      return `<div class="vbar-item detail-trigger" role="button" tabindex="0" data-otros-equipamiento="1" title="${title}" aria-label="Ver detalle de Otros - Tipo de Equipamiento">${content}</div>`;
+    }
+    return `<div class="vbar-item" title="${title}">${content}</div>`;
   }).join("");
   return `<article class="chart-card${options.compact ? " compact-chart" : ""}"><header><h2>${escapeHtml(groupName)}</h2><strong>${formatNumber(totalGrupo)}</strong></header><div class="bar-chart">${bars}</div></article>`;
 }
@@ -633,7 +748,7 @@ function renderDonutChart(groupName, items) {
     offset += pct;
     return segment;
   }).join(", ");
-  const legend = items.map((item, index) => `<li><span class="legend-color" style="background:${chartColors[index % chartColors.length]}"></span><span>${escapeHtml(item.categoria)}</span><strong>${formatNumber(item.total)} · ${formatPct(totalGrupo ? (Number(item.total || 0) / totalGrupo) * 100 : 0)}</strong></li>`).join("");
+  const legend = items.map((item, index) => `<li><span class="legend-color" style="background:${chartColors[index % chartColors.length]}"></span><span>${escapeHtml(item.categoria)}</span><span class="legend-values"><strong class="legend-total">${formatNumber(item.total)}</strong><span class="legend-pct">· ${formatPct(totalGrupo ? (Number(item.total || 0) / totalGrupo) * 100 : 0)}</span></span></li>`).join("");
   return `<article class="chart-card donut-card"><header><h2>${escapeHtml(groupName)}</h2><strong>${formatNumber(totalGrupo)}</strong></header><div class="donut-layout"><div class="donut" style="background: conic-gradient(${segments || "#dbe2ea 0 100%"});"><div><strong>${formatNumber(totalGrupo)}</strong><span>Total</span></div></div><ul class="donut-legend">${legend}</ul></div></article>`;
 }
 
@@ -646,12 +761,17 @@ function renderResults(rows) {
 }
 
 async function mostrarDetalleOtrosEquipamiento() {
-  otrosDetalleContenido.textContent = "Cargando...";
+  otrosDetalleContenido.textContent = "Consultando detalle de Otros...";
   otrosModal.showModal();
-  const rows = await rpc("consultar_tipo_equipamiento_otros_detalle_geo", readFilters());
-  const total = rows.reduce((sum, row) => sum + Number(row.total || 0), 0);
-  const body = rows.map(row => `<tr><td>${escapeHtml(row.detalle)}</td><td>${formatNumber(row.total)}</td><td>${formatPct(total ? (Number(row.total || 0) / total) * 100 : 0)}</td></tr>`).join("");
-  otrosDetalleContenido.innerHTML = rows.length ? `<table><thead><tr><th>Detalle</th><th>Total</th><th>%</th></tr></thead><tbody>${body}</tbody></table>` : "No hay detalle disponible para los filtros actuales.";
+  otrosDetalleContenido.focus();
+  try {
+    const rows = await rpc("consultar_tipo_equipamiento_otros_detalle_geo", readFilters());
+    const total = rows.reduce((sum, row) => sum + Number(row.total || 0), 0);
+    const body = rows.map(row => `<tr><td>${escapeHtml(row.detalle)}</td><td>${formatNumber(row.total)}</td><td>${formatPct(total ? (Number(row.total || 0) / total) * 100 : 0)}</td></tr>`).join("");
+    otrosDetalleContenido.innerHTML = rows.length ? `<table><thead><tr><th>Detalle</th><th>Total</th><th>%</th></tr></thead><tbody>${body}</tbody></table>` : "No hay detalle disponible para los filtros actuales.";
+  } catch (error) {
+    otrosDetalleContenido.textContent = `No se pudo cargar el detalle. ${error.message}`;
+  }
 }
 
 function buildReportTablesHtml() {
@@ -666,6 +786,50 @@ function buildReportTablesHtml() {
   return `<!doctype html><html><head><meta charset="utf-8"><style>body{font-family:Arial,sans-serif}table{border-collapse:collapse;margin-bottom:22px}th,td{border:1px solid #999;padding:6px 9px}th{background:#eaf2f9}</style></head><body><h1>Sistema de Consultas DGINCD</h1><h2>Indicadores</h2><table><tbody>${kpiRows}</tbody></table>${tables}</body></html>`;
 }
 
+function csvCell(value) {
+  return `"${String(value ?? "").replace(/"/g, '""')}"`;
+}
+
+function buildReportTablesRows() {
+  const groups = groupRows(lastRows);
+  const item = Array.isArray(lastKpis) ? lastKpis[0] : lastKpis;
+  const lines = [
+    ["Sistema de Consultas DGINCD"],
+    [],
+    ["Indicador", "Valor"],
+    ["Total Base", Number(item?.total_base || 0)],
+    ["Cantidad de Periodos", Number(item?.cantidad_periodos || 0)],
+    [],
+  ];
+
+  Object.entries(groups).forEach(([groupName, items]) => {
+    const totalGrupo = items.reduce((sum, item) => sum + Number(item.total || 0), 0);
+    lines.push([groupName]);
+    lines.push(["Categoria", "Total", "%"]);
+    items.forEach(item => {
+      lines.push([item.categoria, Number(item.total || 0), formatPct(totalGrupo ? (Number(item.total || 0) / totalGrupo) * 100 : 0)]);
+    });
+    lines.push([]);
+  });
+
+  return lines;
+}
+
+function buildReportTablesCsv() {
+  return `\ufeff${buildReportTablesRows().map(row => row.map(csvCell).join(";")).join("\r\n")}`;
+}
+
+function descargarExcelReal(filename, rows) {
+  if (!window.XLSX) {
+    throw new Error("No se pudo cargar la librería para generar Excel.");
+  }
+  const workbook = XLSX.utils.book_new();
+  const worksheet = XLSX.utils.aoa_to_sheet(rows);
+  worksheet["!cols"] = [{ wch: 38 }, { wch: 16 }, { wch: 12 }];
+  XLSX.utils.book_append_sheet(workbook, worksheet, "Reporte");
+  XLSX.writeFile(workbook, filename);
+}
+
 function downloadBlob(filename, content, type) {
   const blob = new Blob([content], { type });
   const url = URL.createObjectURL(blob);
@@ -673,18 +837,64 @@ function downloadBlob(filename, content, type) {
   link.href = url; link.download = filename; document.body.appendChild(link); link.click(); link.remove(); URL.revokeObjectURL(url);
 }
 
-function descargarTablas() { if (lastRows.length) downloadBlob("reporte_sistema_consultas_tablas.xls", buildReportTablesHtml(), "application/vnd.ms-excel;charset=utf-8"); }
-function descargarGraficos() { if (lastRows.length) downloadBlob("reporte_sistema_consultas_graficos.html", `<!doctype html><html lang="es-AR"><head><meta charset="utf-8"><title>Gráficos Sistema de Consultas</title><link rel="stylesheet" href="${new URL("styles.css", window.location.href).href}"></head><body><main class="shell"><h1>Sistema de Consultas DGINCD</h1>${kpisEl.outerHTML}${resultsEl.outerHTML}</main></body></html>`, "text/html;charset=utf-8"); }
+function descargarTablas() {
+  if (!lastRows.length) {
+    setStatus("No hay datos para descargar. Primero aplicá una consulta.", { type: "warning", sticky: false });
+    return;
+  }
+
+  setButtonBusy(descargarTablasBtn, true, "Preparando...", BUTTON_TEXT.descargarTablas);
+  setStatus("Preparando descarga de tablas...", { sticky: true });
+
+  try {
+    const marcaTemporal = new Date().toISOString().slice(0, 19).replace(/[-:T]/g, "");
+    descargarExcelReal(`DGINCD_DA_REPORTE_${marcaTemporal}.xlsx`, buildReportTablesRows());
+    setStatus("Descarga de tablas generada.", { type: "success", sticky: false });
+  } catch (error) {
+    setStatus(`No se pudo descargar tablas. ${error.message}`, { type: "error", sticky: false });
+  } finally {
+    setButtonBusy(descargarTablasBtn, false, "Preparando...", BUTTON_TEXT.descargarTablas);
+  }
+}
+
+function descargarGraficos() {
+  if (!lastRows.length) {
+    setStatus("No hay gráficos para descargar. Primero aplicá una consulta.", { type: "warning", sticky: false });
+    return;
+  }
+  setButtonBusy(descargarGraficosBtn, true, "Preparando...", BUTTON_TEXT.descargarGraficos);
+  setStatus("Preparando descarga de gráficos...", { sticky: true });
+  try {
+    downloadBlob("DGINCD_DA_GRAFICOS.html", `<!doctype html><html lang="es-AR"><head><meta charset="utf-8"><title>Gráficos Sistema de Consultas</title><link rel="stylesheet" href="${new URL("styles.css", window.location.href).href}"></head><body><main class="shell"><h1>Sistema de Consultas DGINCD</h1>${kpisEl.outerHTML}${resultsEl.outerHTML}</main></body></html>`, "text/html;charset=utf-8");
+    setStatus("Descarga de gráficos generada.", { type: "success", sticky: false });
+  } catch (error) {
+    setStatus(`No se pudo descargar gráficos. ${error.message}`, { type: "error", sticky: false });
+  } finally {
+    setButtonBusy(descargarGraficosBtn, false, "Preparando...", BUTTON_TEXT.descargarGraficos);
+  }
+}
 
 async function consultar(statusMessage = "Filtrando datos...") {
   const queryId = ++activeQueryId;
-  consultarBtn.disabled = true;
-  limpiarFiltrosBtn.disabled = true;
-  statusEl.textContent = statusMessage;
+  setButtonBusy(consultarBtn, true, "Consultando...", BUTTON_TEXT.consultar);
+  setButtonBusy(limpiarFiltrosBtn, true, "Borrando...", BUTTON_TEXT.limpiar);
+  setStatus(statusMessage, { sticky: true });
+  const startedAt = performance.now();
+  let filters = null;
   try {
-    const filters = readFilters();
+    setStatus("Preparando filtros de consulta...", { sticky: true });
+    filters = readFilters();
+    updateSessionSummary(filters);
+    if (statusMessage.includes("visualización")) {
+      setStatus("Cargando datos para la visualización...", { sticky: true });
+    } else if (statusMessage.includes("Filtros borrados")) {
+      setStatus("Reconstruyendo el tablero sin filtros aplicados...", { sticky: true });
+    } else {
+      setStatus("Aplicando los filtros seleccionados al tablero...", { sticky: true });
+    }
     const tablero = await consultarTableroUnificado(filters);
     if (queryId !== activeQueryId) return;
+    setStatus("Procesando resultados...", { sticky: true });
     const kpis = tablero?.kpis || [];
     const rows = tablero?.resumen || [];
     const discapacidadMensual = tablero?.discapacidad_mensual || [];
@@ -693,38 +903,75 @@ async function consultar(statusMessage = "Filtrando datos...") {
     lastKpis = kpis; lastRows = rows; lastDiscapacidadMensual = discapacidadMensual; lastMapRows = mapRows;
     renderKpis(kpis, rows, discapacidadMensual); renderResults(rows);
     lastGeoSummaryRows = geoSummaryRows;
-    statusEl.textContent = "Datos listos. Actualizando mapa territorial...";
+    setStatus("Datos listos. Actualizando mapa territorial...", { sticky: true });
     const kpiItem = Array.isArray(kpis) ? kpis[0] : kpis;
     await renderHeatMap(mapRows, Number(kpiItem?.total_base || 0), filters, geoSummaryRows);
     renderGeoSummary(geoSummaryRows);
-    statusEl.textContent = "Consulta finalizada.";
+    updateSessionSummary(filters, new Date());
+    setStatus(`Consulta finalizada. ${formatNumber(Number(kpiItem?.total_base || 0))} personas encontradas.`, { type: "success", sticky: false });
+    registrarLog("consulta", {
+      detalle: { filtros_activos: Object.keys(filtrosActivos(filters)).length },
+      duracionMs: Math.round(performance.now() - startedAt),
+      totalBase: Number(kpiItem?.total_base || 0),
+    });
   } catch (error) {
     if (queryId !== activeQueryId) return;
-    statusEl.textContent = error.message;
+    setStatus(`No se pudo completar la consulta. ${error.message}`, { type: "error", sticky: false });
     resultsEl.innerHTML = '<div class="empty error">No se pudo completar la consulta.</div>';
     kpisEl.innerHTML = "";
     mapCoverageEl.textContent = "Mapa no disponible";
     renderGeoSummary([]);
-  } finally { consultarBtn.disabled = false; limpiarFiltrosBtn.disabled = false; }
+    registrarLog("error_consulta", {
+      detalle: { filtros_activos: filters ? Object.keys(filtrosActivos(filters)).length : 0 },
+      duracionMs: Math.round(performance.now() - startedAt),
+      resultado: "error",
+      errorMensaje: error.message,
+    });
+  } finally {
+    setButtonBusy(consultarBtn, false, "Consultando...", BUTTON_TEXT.consultar);
+    setButtonBusy(limpiarFiltrosBtn, false, "Borrando...", BUTTON_TEXT.limpiar);
+  }
 }
 
 async function iniciarApp() {
   showApp(true);
+  updateSessionSummary();
+  setStatus("Cargando los datos para la visualización...", { sticky: true });
   await cargarFiltros();
-  await consultar();
+  await consultar("Cargando los datos para la visualización...");
 }
 
 loginForm.addEventListener("submit", async event => {
   event.preventDefault();
   loginStatus.textContent = "Ingresando...";
+  showToast("Validando usuario e ingresando al sistema...", "info", true);
   try {
     await signIn(document.getElementById("loginEmail").value, document.getElementById("loginPassword").value);
-    loginStatus.textContent = "";
+    registrarLog("login_exitoso");
+    loginStatus.textContent = "Cargando los datos para la visualización...";
+    showToast("Cargando los datos para la visualización...", "info", true);
     await iniciarApp();
-  } catch (error) { loginStatus.textContent = error.message; }
+    loginStatus.textContent = "";
+  } catch (error) {
+    loginStatus.textContent = error.message;
+    showToast(`No se pudo ingresar. ${error.message}`, "error", false);
+  }
 });
 
-logoutBtn.addEventListener("click", signOut);
+togglePasswordBtn?.addEventListener("click", () => {
+  const isHidden = loginPasswordInput.type === "password";
+  loginPasswordInput.type = isHidden ? "text" : "password";
+  togglePasswordBtn.textContent = isHidden ? "×" : "👁";
+  togglePasswordBtn.title = isHidden ? "Ocultar contraseña" : "Mostrar contraseña";
+  togglePasswordBtn.setAttribute("aria-label", isHidden ? "Ocultar contraseña" : "Mostrar contraseña");
+  togglePasswordBtn.setAttribute("aria-pressed", String(isHidden));
+});
+
+logoutBtn.addEventListener("click", async () => {
+  setStatus("Cerrando sesión...", { sticky: false });
+  await registrarLog("logout");
+  await signOut();
+});
 consultarBtn.addEventListener("click", () => consultar("Filtrando datos..."));
 limpiarFiltrosBtn.addEventListener("click", limpiarFiltros);
 descargarTablasBtn.addEventListener("click", descargarTablas);
@@ -748,7 +995,17 @@ geoSummaryEl?.addEventListener("click", event => {
   }
   consultar();
 });
-resultsEl.addEventListener("click", event => { if (event.target.closest("[data-otros-equipamiento]")) mostrarDetalleOtrosEquipamiento().catch(error => { otrosDetalleContenido.textContent = error.message; }); });
+resultsEl.addEventListener("click", event => {
+  const detailControl = event.target.closest("[data-otros-equipamiento='1']");
+  if (!detailControl) return;
+  mostrarDetalleOtrosEquipamiento().catch(error => { otrosDetalleContenido.textContent = error.message; });
+});
+resultsEl.addEventListener("keydown", event => {
+  const detailControl = event.target.closest("[data-otros-equipamiento='1']");
+  if (!detailControl || !["Enter", " "].includes(event.key)) return;
+  event.preventDefault();
+  mostrarDetalleOtrosEquipamiento().catch(error => { otrosDetalleContenido.textContent = error.message; });
+});
 toggleMapFullscreenBtn?.addEventListener("click", () => toggleMapFullscreen().catch(() => {}));
 document.addEventListener("fullscreenchange", () => {
   const expanded = document.fullscreenElement === mapCard;
@@ -769,6 +1026,3 @@ document.addEventListener("fullscreenchange", () => {
   if (!authSession?.access_token) { showApp(false); return; }
   try { await iniciarApp(); } catch (error) { loginStatus.textContent = error.message; await signOut(); }
 })();
-
-
-

@@ -3,38 +3,59 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>DGINCD GESTION DE CONSULTAS</title>
+  <title>DGINCD | Sistema de Consultas</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Segoe UI:wght@400;500;600;700;800&family=Montserrat:wght@600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" />
-  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="styles.css?v=20260804-header-layout-2" />
 </head>
 <body>
+  <div class="toast-region" id="toastRegion" role="status" aria-live="polite"></div>
   <section class="login-view" id="loginView">
     <form class="login-card" id="loginForm">
-      <h1>DGINCD GESTION DE CONSULTAS</h1>
+      <h1>DGINCD | Sistema de Consultas</h1>
       <p>Ingresá con usuario y contraseña.</p>
       <label>Email<input id="loginEmail" type="email" autocomplete="username" required /></label>
-      <label>Contraseña<input id="loginPassword" type="password" autocomplete="current-password" required /></label>
+      <label>
+        Contraseña
+        <span class="password-field">
+          <input id="loginPassword" type="password" autocomplete="current-password" required />
+          <button id="togglePasswordBtn" type="button" class="password-toggle" aria-label="Mostrar contraseña" aria-pressed="false">
+            👁
+          </button>
+        </span>
+      </label>    
       <button type="submit">Ingresar</button>
-      <div class="login-status" id="loginStatus"></div>
+      <div class="login-status" id="loginStatus" role="status" aria-live="polite"></div>
     </form>
   </section>
 
   <main class="shell hidden" id="appShell">
     <header class="topbar">
-      <div>
-        <h1>DGINCD GESTION DE CONSULTAS</h1>
-        <p>Dashboard online</p>
+      <div class="brand-block">
+        <div>
+          <h1>DGINCD | Sistema de Consultas</h1>
+          <p>Dashboard online</p>
+          <p class="last-query-inline">Última consulta: <strong id="lastQueryAt">Sin consultar</strong></p>
+          <p class="user-inline">Usuario: <strong><span id="sessionRole">Usuario</span> · <span id="sessionUser">Sin sesión</span></strong></p>
+        </div>
       </div>
       <div class="actions">
-        <button id="descargarTablasBtn" type="button">Descargar tablas</button>
-        <button id="descargarGraficosBtn" type="button">Descargar gráficos</button>
-        <button id="logoutBtn" type="button" class="secondary-btn">Salir</button>
+        <div class="action-buttons">
+          <button id="descargarTablasBtn" type="button">Descargar tablas</button>
+          <button id="descargarGraficosBtn" type="button">Descargar gráficos</button>
+          <button id="logoutBtn" type="button" class="secondary-btn">Salir</button>
+        </div>
+        <div class="filters-inline">Filtros activos: <strong id="activeFiltersCount">0</strong></div>
       </div>
     </header>
 
     <div class="dashboard-layout">
       <section class="dashboard-main" aria-live="polite">
-        <section class="status" id="status">Cargando filtros...</section>
+        <section class="status" id="status" role="status" aria-live="polite">
+          Cargando filtros...
+        </section>
         <section class="kpis" id="kpis"></section>
         <section class="geo-section">
           <section class="map-card" id="mapCard" aria-labelledby="mapTitle">
@@ -45,7 +66,7 @@
             <header>
               <div>
                 <h2 id="geoTableTitle">Distribución territorial</h2>
-                <p>Seleccioná una fila para aplicar el filtro al tablero.</p>
+                <p>Selecciona una fila para aplicar el filtro al tablero.</p>
               </div>
               <label>Ver por<select id="geoTableMode"><option value="comuna">Comunas</option><option value="barrio">Barrios</option></select></label>
             </header>
@@ -83,17 +104,19 @@
     </div>
   </main>
 
-  <dialog class="detail-modal" id="otrosModal">
+  <dialog class="detail-modal" id="otrosModal" aria-labelledby="otrosModalTitle">
     <div class="modal-head">
-      <h2>Detalle de Otros - Tipo de Equipamiento</h2>
+      <h2 id="otrosModalTitle">Detalle de Otros - Tipo de Equipamiento</h2>
       <button id="cerrarModalBtn" type="button" class="secondary-btn">Cerrar</button>
     </div>
-    <div id="otrosDetalleContenido" class="modal-body">Cargando...</div>
+    <div id="otrosDetalleContenido" class="modal-body" tabindex="-1">Cargando...</div>
   </dialog>
 
   <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="config.js"></script>
-  <script src="app_heat.js?v=20260803-layout-2"></script>
+  <script src="app_heat.js?v=20260804-header-layout-2"></script>
 </body>
 </html>
