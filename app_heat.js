@@ -815,18 +815,81 @@ function buildReportTablesRows() {
   return lines;
 }
 
+function appendReportGroup(lines, groups, groupName) {
+  const items = groups[groupName] || [];
+  const totalGrupo = items.reduce((sum, item) => sum + Number(item.total || 0), 0);
+  lines.push([groupName]);
+  lines.push(["Categoria", "Total", "%"]);
+  if (!items.length) {
+    lines.push(["Sin datos", 0, "0.00%"]);
+  } else {
+    items.forEach(item => {
+      lines.push([item.categoria, Number(item.total || 0), formatPct(totalGrupo ? (Number(item.total || 0) / totalGrupo) * 100 : 0)]);
+    });
+  }
+  lines.push([]);
+}
+
+function buildReportSheet(title, groupNames, groups, extraRows = []) {
+  const lines = [[title], []];
+  if (extraRows.length) {
+    lines.push(...extraRows, []);
+  }
+  groupNames.forEach(groupName => appendReportGroup(lines, groups, groupName));
+  return lines;
+}
+
+function buildReportWorkbookSheets() {
+  const groups = groupRows(lastRows);
+  const item = Array.isArray(lastKpis) ? lastKpis[0] : lastKpis;
+  const indicadores = [
+    ["Indicador", "Valor"],
+    ["Total Base", Number(item?.total_base || 0)],
+    ["Cantidad de Periodos", Number(item?.cantidad_periodos || 0)],
+  ];
+
+  return [
+    {
+      name: "CUD",
+      rows: buildReportSheet("CUD", ["Estado CUD", "Sexo", "Discapacidad"], groups, indicadores),
+    },
+    {
+      name: "Orientacion Prestacional",
+      rows: buildReportSheet("Orientacion Prestacional", ["Orientación Prestacional", "Tipo de Orientación Prestacional"], groups),
+    },
+    {
+      name: "Equipamiento",
+      rows: buildReportSheet("Equipamiento", ["Equipamiento", "Tipo de Equipamiento"], groups),
+    },
+    {
+      name: "Laboral Previsional",
+      rows: buildReportSheet("Laboral/Situacion Previsional", ["Condición de Actividad", "Situación Previsional"], groups),
+    },
+    {
+      name: "Vivienda",
+      rows: buildReportSheet("Vivienda", ["Vivienda Particular o Colectiva", "Tipo de Vivienda Estandarizada", "Vivienda Adaptada", "Tipo de Convivencia"], groups),
+    },
+    {
+      name: "Otros",
+      rows: buildReportSheet("Otros", ["Alfabetización", "Ley de Acompañante"], groups),
+    },
+  ];
+}
+
 function buildReportTablesCsv() {
   return `\ufeff${buildReportTablesRows().map(row => row.map(csvCell).join(";")).join("\r\n")}`;
 }
 
-function descargarExcelReal(filename, rows) {
+function descargarExcelReal(filename, sheets) {
   if (!window.XLSX) {
     throw new Error("No se pudo cargar la librería para generar Excel.");
   }
   const workbook = XLSX.utils.book_new();
-  const worksheet = XLSX.utils.aoa_to_sheet(rows);
-  worksheet["!cols"] = [{ wch: 38 }, { wch: 16 }, { wch: 12 }];
-  XLSX.utils.book_append_sheet(workbook, worksheet, "Reporte");
+  sheets.forEach(sheet => {
+    const worksheet = XLSX.utils.aoa_to_sheet(sheet.rows);
+    worksheet["!cols"] = [{ wch: 38 }, { wch: 16 }, { wch: 12 }];
+    XLSX.utils.book_append_sheet(workbook, worksheet, sheet.name.slice(0, 31));
+  });
   XLSX.writeFile(workbook, filename);
 }
 
@@ -848,7 +911,7 @@ function descargarTablas() {
 
   try {
     const marcaTemporal = new Date().toISOString().slice(0, 19).replace(/[-:T]/g, "");
-    descargarExcelReal(`DGINCD_DA_REPORTE_${marcaTemporal}.xlsx`, buildReportTablesRows());
+    descargarExcelReal(`DGINCD_DA_REPORTE_${marcaTemporal}.xlsx`, buildReportWorkbookSheets());
     setStatus("Descarga de tablas generada.", { type: "success", sticky: false });
   } catch (error) {
     setStatus(`No se pudo descargar tablas. ${error.message}`, { type: "error", sticky: false });
