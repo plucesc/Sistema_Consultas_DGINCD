@@ -821,10 +821,10 @@ function appendReportGroup(lines, groups, groupName) {
   lines.push([groupName]);
   lines.push(["Categoria", "Total", "%"]);
   if (!items.length) {
-    lines.push(["Sin datos", 0, "0.00%"]);
+    lines.push(["Sin datos", 0, 0]);
   } else {
     items.forEach(item => {
-      lines.push([item.categoria, Number(item.total || 0), formatPct(totalGrupo ? (Number(item.total || 0) / totalGrupo) * 100 : 0)]);
+      lines.push([item.categoria, Number(item.total || 0), totalGrupo ? Number(item.total || 0) / totalGrupo : 0]);
     });
   }
   lines.push([]);
@@ -880,17 +880,111 @@ function buildReportTablesCsv() {
   return `\ufeff${buildReportTablesRows().map(row => row.map(csvCell).join(";")).join("\r\n")}`;
 }
 
-function descargarExcelReal(filename, sheets) {
-  if (!window.XLSX) {
-    throw new Error("No se pudo cargar la librería para generar Excel.");
-  }
-  const workbook = XLSX.utils.book_new();
-  sheets.forEach(sheet => {
-    const worksheet = XLSX.utils.aoa_to_sheet(sheet.rows);
-    worksheet["!cols"] = [{ wch: 38 }, { wch: 16 }, { wch: 12 }];
-    XLSX.utils.book_append_sheet(workbook, worksheet, sheet.name.slice(0, 31));
+function downloadWorkbookBlob(filename, buffer) {
+  const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+function styleExcelWorksheet(worksheet) {
+  const colors = {
+    title: "173957",
+    header: "1f6fac",
+    band: "f4f8fb",
+    border: "c9d7e3",
+    text: "0b1f33",
+    muted: "44546a",
+  };
+
+  worksheet.columns = [
+    { key: "categoria", width: 42 },
+    { key: "total", width: 18 },
+    { key: "porcentaje", width: 14 },
+  ];
+  worksheet.views = [{ state: "frozen", ySplit: 1 }];
+
+  worksheet.eachRow((row, rowNumber) => {
+    const values = [row.getCell(1).value, row.getCell(2).value, row.getCell(3).value];
+    const isBlank = values.every(value => value === null || value === undefined || value === "");
+    const isTitle = values[0] && !values[1] && !values[2];
+    const isHeader = values[0] === "Categoria" || values[0] === "Indicador";
+
+    row.height = isTitle ? 24 : 20;
+    row.eachCell({ includeEmpty: true }, cell => {
+      cell.font = { name: "Inter", size: 10, color: { argb: `FF${colors.text}` } };
+      cell.alignment = { vertical: "middle", wrapText: true };
+    });
+
+    if (isBlank) return;
+
+    if (isTitle) {
+      worksheet.mergeCells(rowNumber, 1, rowNumber, 3);
+      const cell = row.getCell(1);
+      cell.font = { name: "Montserrat", size: rowNumber === 1 ? 14 : 11, bold: true, color: { argb: rowNumber === 1 ? "FFFFFFFF" : `FF${colors.title}` } };
+      cell.fill = rowNumber === 1
+        ? { type: "pattern", pattern: "solid", fgColor: { argb: `FF${colors.title}` } }
+        : { type: "pattern", pattern: "solid", fgColor: { argb: "FFEAF2F8" } };
+      cell.alignment = { vertical: "middle", horizontal: "left" };
+      return;
+    }
+
+    row.eachCell({ includeEmpty: true }, cell => {
+      cell.border = {
+        top: { style: "thin", color: { argb: `FF${colors.border}` } },
+        left: { style: "thin", color: { argb: `FF${colors.border}` } },
+        bottom: { style: "thin", color: { argb: `FF${colors.border}` } },
+        right: { style: "thin", color: { argb: `FF${colors.border}` } },
+      };
+    });
+
+    if (isHeader) {
+      row.eachCell({ includeEmpty: true }, cell => {
+        cell.font = { name: "Montserrat", size: 10, bold: true, color: { argb: "FFFFFFFF" } };
+        cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: `FF${colors.header}` } };
+        cell.alignment = { vertical: "middle", horizontal: cell.col === 1 ? "left" : "right" };
+      });
+      worksheet.autoFilter = {
+        from: { row: rowNumber, column: 1 },
+        to: { row: rowNumber, column: values[0] === "Indicador" ? 2 : 3 },
+      };
+      return;
+    }
+
+    if (rowNumber % 2 === 0) {
+      row.eachCell({ includeEmpty: true }, cell => {
+        cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: `FF${colors.band}` } };
+      });
+    }
+
+    row.getCell(2).numFmt = "#,##0";
+    row.getCell(2).alignment = { vertical: "middle", horizontal: "right" };
+    row.getCell(3).numFmt = "0.00%";
+    row.getCell(3).alignment = { vertical: "middle", horizontal: "right" };
   });
-  XLSX.writeFile(workbook, filename);
+}
+
+async function descargarExcelReal(filename, sheets) {
+  if (!window.ExcelJS) {
+    throw new Error("No se pudo cargar la librería para generar Excel con formato.");
+  }
+
+  const workbook = new ExcelJS.Workbook();
+  workbook.creator = "DGINCD";
+  workbook.created = new Date();
+  sheets.forEach(sheet => {
+    const worksheet = workbook.addWorksheet(sheet.name.slice(0, 31));
+    sheet.rows.forEach(row => worksheet.addRow(row));
+    styleExcelWorksheet(worksheet);
+  });
+
+  const buffer = await workbook.xlsx.writeBuffer();
+  downloadWorkbookBlob(filename, buffer);
 }
 
 function downloadBlob(filename, content, type) {
@@ -900,7 +994,7 @@ function downloadBlob(filename, content, type) {
   link.href = url; link.download = filename; document.body.appendChild(link); link.click(); link.remove(); URL.revokeObjectURL(url);
 }
 
-function descargarTablas() {
+async function descargarTablas() {
   if (!lastRows.length) {
     setStatus("No hay datos para descargar. Primero aplicá una consulta.", { type: "warning", sticky: false });
     return;
@@ -911,7 +1005,7 @@ function descargarTablas() {
 
   try {
     const marcaTemporal = new Date().toISOString().slice(0, 19).replace(/[-:T]/g, "");
-    descargarExcelReal(`DGINCD_DA_REPORTE_${marcaTemporal}.xlsx`, buildReportWorkbookSheets());
+    await descargarExcelReal(`DGINCD_DA_REPORTE_${marcaTemporal}.xlsx`, buildReportWorkbookSheets());
     setStatus("Descarga de tablas generada.", { type: "success", sticky: false });
   } catch (error) {
     setStatus(`No se pudo descargar tablas. ${error.message}`, { type: "error", sticky: false });
