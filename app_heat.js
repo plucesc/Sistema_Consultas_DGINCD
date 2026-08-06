@@ -839,6 +839,43 @@ function buildReportSheet(title, groupNames, groups, extraRows = []) {
   return lines;
 }
 
+function buildTerritoryReportSheet(rows = []) {
+  const geoRows = Array.isArray(rows) ? rows : [];
+  const comunaRows = geoRows.filter(row => normalizeGeoLevel(row.nivel) === "comuna");
+  const barrioRows = geoRows
+    .filter(row => normalizeGeoLevel(row.nivel) === "barrio")
+    .sort((a, b) => String(a.categoria || "").localeCompare(String(b.categoria || ""), "es"));
+  const comunaLookup = new Map(comunaRows.map(row => [String(row.categoria || "").toLowerCase(), Number(row.total || 0)]));
+  const totalComunas = comunaRows.reduce((sum, row) => sum + Number(row.total || 0), 0);
+  const totalBarrios = barrioRows.reduce((sum, row) => sum + Number(row.total || 0), 0);
+  const lines = [
+    ["Territorio"],
+    [],
+    ["Comunas"],
+    ["Categoria", "Total", "%"],
+  ];
+
+  for (let index = 1; index <= 15; index += 1) {
+    const categoria = `Comuna ${index}`;
+    const total = comunaLookup.get(categoria.toLowerCase()) || 0;
+    lines.push([categoria, total, totalComunas ? total / totalComunas : 0]);
+  }
+
+  lines.push([]);
+  lines.push(["Barrios"]);
+  lines.push(["Categoria", "Total", "%"]);
+  if (!barrioRows.length) {
+    lines.push(["Sin datos", 0, 0]);
+  } else {
+    barrioRows.forEach(row => {
+      const total = Number(row.total || 0);
+      lines.push([row.categoria || "Sin dato", total, totalBarrios ? total / totalBarrios : 0]);
+    });
+  }
+
+  return lines;
+}
+
 function buildReportWorkbookSheets() {
   const groups = groupRows(lastRows);
   const item = Array.isArray(lastKpis) ? lastKpis[0] : lastKpis;
@@ -852,6 +889,10 @@ function buildReportWorkbookSheets() {
     {
       name: "CUD",
       rows: buildReportSheet("CUD", ["Estado CUD", "Sexo", "Discapacidad"], groups, indicadores),
+    },
+    {
+      name: "Territorio",
+      rows: buildTerritoryReportSheet(lastGeoSummaryRows),
     },
     {
       name: "Orientacion Prestacional",
