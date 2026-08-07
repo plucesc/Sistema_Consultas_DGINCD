@@ -230,9 +230,13 @@ function readFilterValue(control, filterName) {
 }
 
 function readFilters() {
+  const edadDesde = Number(document.getElementById("edadDesde").value || 0);
+  const edadHasta = Number(document.getElementById("edadHasta").value || 200);
+  const filtraEdad = !(edadDesde === 0 && edadHasta === 200);
+
   return {
-    p_edad_desde: Number(document.getElementById("edadDesde").value || 0),
-    p_edad_hasta: Number(document.getElementById("edadHasta").value || 200),
+    p_edad_desde: filtraEdad ? edadDesde : null,
+    p_edad_hasta: filtraEdad ? edadHasta : null,
     p_fecha_desde: parseDateInput(document.getElementById("fechaDesde").value),
     p_fecha_hasta: parseDateInput(document.getElementById("fechaHasta").value),
     p_orientacion_prestacional: readFilterValue(filterControls.orientacion_prestacional, "orientacion_prestacional"),
